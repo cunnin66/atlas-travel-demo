@@ -1,0 +1,97 @@
+# Evaluation scenarios for Atlas Travel Advisor
+# These scenarios test various aspects of the AI travel agent
+
+scenarios:
+  - name: "Basic Trip Planning"
+    description: "Test basic trip planning functionality"
+    input:
+      destination: "Paris, France"
+      duration: 5
+      budget: 2000
+      group_size: 2
+      preferences:
+        interests: ["museums", "food", "architecture"]
+        accommodation_type: "hotel"
+    expected_outputs:
+      - "itinerary with 5 days"
+      - "budget breakdown"
+      - "museum recommendations"
+      - "restaurant suggestions"
+    
+  - name: "Budget-Conscious Planning"
+    description: "Test planning with strict budget constraints"
+    input:
+      destination: "Tokyo, Japan"
+      duration: 7
+      budget: 1000
+      group_size: 1
+      preferences:
+        interests: ["culture", "food"]
+        budget_priority: "accommodation"
+    expected_outputs:
+      - "budget-friendly accommodations"
+      - "free cultural activities"
+      - "affordable dining options"
+    
+  - name: "Family Trip Planning"
+    description: "Test planning for families with children"
+    input:
+      destination: "Orlando, Florida"
+      duration: 4
+      budget: 3000
+      group_size: 4
+      preferences:
+        group_type: "family"
+        ages: [35, 33, 8, 5]
+        interests: ["theme parks", "family activities"]
+    expected_outputs:
+      - "family-friendly activities"
+      - "child-appropriate restaurants"
+      - "stroller-friendly itinerary"
+    
+  - name: "Adventure Travel"
+    description: "Test planning for adventure and outdoor activities"
+    input:
+      destination: "Costa Rica"
+      duration: 10
+      budget: 2500
+      group_size: 2
+      preferences:
+        interests: ["hiking", "wildlife", "adventure sports"]
+        activity_level: "high"
+    expected_outputs:
+      - "hiking trails and difficulty levels"
+      - "wildlife viewing opportunities"
+      - "adventure activity bookings"
+    
+  - name: "Cultural Immersion"
+    description: "Test planning for cultural and educational travel"
+    input:
+      destination: "Kyoto, Japan"
+      duration: 6
+      budget: 1800
+      group_size: 1
+      preferences:
+        interests: ["temples", "traditional culture", "tea ceremony"]
+        travel_style: "slow travel"
+    expected_outputs:
+      - "temple visiting schedule"
+      - "cultural experience bookings"
+      - "local interaction opportunities"
+
+evaluation_criteria:
+  - name: "Relevance"
+    description: "How well the itinerary matches user preferences"
+    weight: 0.3
+    
+  - name: "Feasibility"
+    description: "Whether the itinerary is logistically possible"
+    weight: 0.25
+    
+  - name: "Budget Adherence"
+    description: "How well the plan stays within budget"
+    weight: 0.25
+    
+  - name: "Completeness"
+    description: "Whether all aspects of travel are covered"
+    weight: 0.2
