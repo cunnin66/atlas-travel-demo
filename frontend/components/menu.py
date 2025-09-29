@@ -21,6 +21,7 @@ def unauthenticated_menu():
     header()
     # Show a navigation menu for unauthenticated users
     st.sidebar.page_link("app.py", label="Log in")
+    st.sidebar.page_link("pages/register.py", label="Register")
     st.set_page_config(
         page_title="Atlas Travel Advisor",
         page_icon="🌍",

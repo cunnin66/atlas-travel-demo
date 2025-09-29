@@ -3,13 +3,13 @@ from typing import Optional, Union
 from jose import JWTError, jwt
 import uuid
 import hashlib
-from argon2 import PasswordHasher
+from argon2 import PasswordHasher, Type
 from argon2.exceptions import VerifyMismatchError
 import os
 from sqlalchemy.orm import Session
-from app.models.token import AccessToken, RefreshToken
+from app.models.token import RefreshToken
 from app.models.user import User
-
+from app.models.org import Org
 from app.core.config import settings
 
 # Configure Argon2 with secure parameters for Argon2id
@@ -20,21 +20,25 @@ ph = PasswordHasher(
     hash_len=32,      # Length of hash in bytes
     salt_len=16,      # Length of salt in bytes
     encoding='utf-8',
-    type=2            # Argon2id variant
+    type=Type.ID      # Argon2id variant
 )
 
 # Load RSA keys for JWT
 def _load_private_key() -> str:
-     """Load RSA private key from file"""
-     return settings.PRIVATE_KEY
+    """Load RSA private key from environment variable"""
+    # Replace literal \n with actual newlines if needed
+    key = settings.JWT_PRIVATE_KEY.replace('\\n', '\n')
+    return key
 #     key_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), settings.PRIVATE_KEY_PATH)
 #     with open(key_path, 'r') as f:
 #         return f.read()
 
 
 def _load_public_key() -> str:
-    """Load RSA public key from file"""
-    return settings.PUBLIC_KEY
+    """Load RSA public key from environment variable"""
+    # Replace literal \n with actual newlines if needed
+    key = settings.JWT_PUBLIC_KEY.replace('\\n', '\n')
+    return key
 #     key_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), settings.PUBLIC_KEY_PATH)
 #     with open(key_path, 'r') as f:
 #         return f.read()    
@@ -154,3 +158,32 @@ def are_credentials_valid(username: str, password: str, db: Session) -> bool:
     if not user:
         return False
     return verify_password(password, user.hashed_password)
+
+
+def is_email_available(email: str, db: Session) -> bool:
+    """Check if email is available"""
+    return db.query(User).filter(User.email == email).first() is None
+
+
+def create_new_organization(name: str, db: Session) -> Org:
+    """Create a new organization"""
+    org = Org(
+        name=name,
+        slug=name.lower().replace(" ", "-"),
+        description=""
+    )
+    db.add(org)
+    db.commit()
+    return org
+
+
+def create_new_user(email: str, password: str, org_id: int, db: Session) -> User:
+    """Create a new user"""
+    user = User(
+        email=email,
+        hashed_password=hash_password(password),
+        org_id=org_id
+    )
+    db.add(user)
+    db.commit()
+    return user 

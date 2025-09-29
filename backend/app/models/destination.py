@@ -15,5 +15,4 @@ class Destination(BaseModel):
     # Organization relationship
     org_id = Column(ForeignKey("orgs.id"), nullable=False)
     
-    # Relationships
-    knowledge_items = relationship("KnowledgeItem", back_populates="destination")
+    # Relationships can be added later if needed

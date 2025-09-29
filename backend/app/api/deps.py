@@ -1,19 +1,13 @@
-from typing import Generator, Optional
+from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
-from app.core.security import verify_token, get_user_by_token
+from app.database import get_db
+from app.core.security import get_user_by_access_token
 from app.models.user import User
 
 security = HTTPBearer()
-
-
-def get_db() -> Generator:
-    """Get database session"""
-    # TODO: Implement database session dependency
-    pass
 
 
 def get_current_user(
@@ -21,7 +15,7 @@ def get_current_user(
     token: str = Depends(security)
 ) -> User:
     """Get current authenticated user"""
-    valid_user = get_user_by_token(token, db)
+    valid_user = get_user_by_access_token(token, db)
     if not valid_user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
     return valid_user

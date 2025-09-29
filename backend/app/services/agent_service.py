@@ -25,7 +25,7 @@ class AgentService:
         self, 
         query: str, 
         user: User
-    ) -> AsyncGenerator[str, None]:
+    ):
         """Stream AI agent responses"""
         # TODO: Implement streaming agent responses
         pass

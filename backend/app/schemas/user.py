@@ -10,6 +10,13 @@ class UserBase(BaseModel):
     is_active: bool = True
 
 
+class UserRegister(BaseModel):
+    """User registration schema"""
+    email: EmailStr
+    password: str
+    org_name: str
+
+
 class UserCreate(UserBase):
     """User creation schema"""
     password: str

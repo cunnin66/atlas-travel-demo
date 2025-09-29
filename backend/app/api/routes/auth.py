@@ -5,11 +5,31 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db, get_current_user, get_current_admin_user
 from app.schemas.token import Token, TokenRefresh
 from app.models.token import RefreshToken
-from app.schemas.user import UserCreate, UserInDB, UserResponse
+from app.schemas.user import UserCreate, UserInDB, UserResponse, UserRegister
 from app.models.user import User, scrubUser
-from app.core.security import create_access_token, create_refresh_token, are_credentials_valid
+from app.core.security import create_access_token, create_refresh_token, are_credentials_valid, is_email_available, create_new_organization, create_new_user
 
 router = APIRouter()
+
+
+@router.post("/register", response_model=Token)
+async def register(
+    form_data: UserRegister,
+    db: Session = Depends(get_db)
+):
+    """User register endpoint"""
+    if not is_email_available(form_data.email, db):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
+    
+    org = create_new_organization(form_data.org_name, db)
+
+    user = create_new_user(form_data.email, form_data.password, org.id, db)
+    access_token = create_access_token(user)
+    refresh_token = create_refresh_token(user, db)
+    return Token(
+        access_token=access_token,
+        refresh_token=refresh_token
+    )
 
 
 @router.post("/login", response_model=Token)

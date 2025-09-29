@@ -14,7 +14,7 @@ class AgentRun(BaseModel):
     response = Column(Text)
     status = Column(String(50))  # pending, running, completed, failed
     execution_time = Column(Float)  # in seconds
-    metadata = Column(JSON)
+    run_metadata = Column(JSON)
     
     # Relationships
     user = relationship("User", back_populates="agent_runs")

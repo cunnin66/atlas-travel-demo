@@ -15,8 +15,8 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
     # JWT Keys
-    PRIVATE_KEY: str
-    PUBLIC_KEY: str
+    JWT_PRIVATE_KEY: str
+    JWT_PUBLIC_KEY: str
     
     # API
     API_V1_STR: str = "/api/v1"

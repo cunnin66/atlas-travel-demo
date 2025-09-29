@@ -13,7 +13,7 @@ class KnowledgeItem(BaseModel):
     content = Column(Text, nullable=False)
     source_type = Column(String(50))  # file, url, manual, etc.
     source_url = Column(String(500))
-    metadata = Column(JSON)
+    item_metadata = Column(JSON)
     tags = Column(ARRAY(String))
     
     # Organization relationship
