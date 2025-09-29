@@ -4,16 +4,19 @@ from typing import Optional
 
 class Settings(BaseSettings):
     # Database
-    DATABASE_URL: str = "postgresql://atlas_user:atlas_password@db:5432/atlas_travel"
+    DATABASE_URL: str
     
     # Redis
-    REDIS_URL: str = "redis://redis:6379/0"
+    REDIS_URL: str
     
     # Security
-    SECRET_KEY: str = "dev-secret-key-change-in-production"
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ALGORITHM: str = "RS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    
+    # JWT Keys
+    PRIVATE_KEY: str
+    PUBLIC_KEY: str
     
     # API
     API_V1_STR: str = "/api/v1"
