@@ -6,8 +6,8 @@ alembic==1.12.1
 pydantic==2.5.0
 python-jose[cryptography]==3.3.0
 argon2-cffi==23.1.0
-langchain==0.0.340
-langgraph==0.0.26
+langchain==0.1.0
+langgraph==0.0.20
 redis==5.0.1
 python-multipart==0.0.6
 pydantic-settings==2.1.0
