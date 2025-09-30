@@ -277,7 +277,6 @@ class AgentService:
                 "plan": plan_response.model_dump(mode="json"),
             }
 
-            print(f"Sending final response: {final_response}")
             yield final_response
 
         # Send completion signal - this will be wrapped with "data: " by stream_agent_response
