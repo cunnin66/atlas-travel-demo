@@ -17,7 +17,11 @@ def submit_trip_request(prompt):
         )
 
 
-destination = get_destination(st.session_state.selected_destination)
+if "selected_destination" in st.session_state:
+    destination = get_destination(st.session_state.selected_destination)
+else:
+    destination = None
+
 menu_with_redirect()
 
 if destination is None:
