@@ -7,6 +7,7 @@ from datetime import datetime
 from app.models.agent import AgentRun
 from app.models.user import User
 from app.nodes.intent import IntentNode
+from app.nodes.planner import PlannerNode
 from app.nodes.responder import ResponderNode
 from app.nodes.synthesizer import SynthesizerNode
 from app.schemas.agent import AgentState, Itinerary, PlanRequest, PlanResponse
@@ -25,6 +26,8 @@ def create_system_message() -> SystemMessage:
         content="""You are a travel planning assistant. You are given a user request which will include different types of constraints.
         Your task is to build a travel itinerary that satisfies all the user's constraints for the trip.
         Some constraints may be missing, in which case you may make reasonable assumptions about the user's intent.
+        If the user does not specify a place of origin, assume they are traveling from New York City.
+        You will be asked to build a simple step-by-step plan to fufill the user's request.
         By the end, your response must conform to the appropriate JSON format.
 
         In general, the itinerary should cover the following:
@@ -46,10 +49,13 @@ def create_agent_workflow():
 
     workflow = StateGraph(AgentState)
     workflow.add_node("intent", IntentNode(model, tool_executor))
+    workflow.add_node("planner", PlannerNode(model, tool_executor))
     workflow.add_node("synthesizer", SynthesizerNode(model, tool_executor))
     workflow.add_node("responder", ResponderNode(model, tool_executor))
 
     workflow.set_entry_point("intent")
+    workflow.add_edge("intent", "planner")
+    workflow.add_edge("planner", "synthesizer")
     workflow.add_edge("intent", "synthesizer")
     workflow.add_edge("synthesizer", "responder")
     workflow.add_edge("responder", END)
@@ -135,6 +141,7 @@ class AgentService:
         # Define status messages for each node
         node_messages = {
             "intent": "Extracting constraints...",
+            "planner": "Building a strategy...",
             "synthesizer": "Finalizing itinerary...",
             "responder": "Generating final summary...",
         }
