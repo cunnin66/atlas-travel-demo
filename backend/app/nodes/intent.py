@@ -64,16 +64,19 @@ class IntentNode(BaseNode):
         # Create a structured output model for the LLM
         structured_llm = self.llm_model.with_structured_output(TravelConstraints)
 
-        # Check if we have previous constraints for modification requests
-        previous_constraints = state.get("previous_constraints")
+        # Check if we have existing constraints (for modification requests, these contain the previous constraints)
+        existing_constraints = state.get("constraints", {})
+        is_modification = bool(
+            existing_constraints
+        )  # If we have existing constraints, this is a modification
 
         # System message to instruct the LLM to extract constraints
-        if previous_constraints:
+        if is_modification:
             constraint_extraction_message = SystemMessage(
                 content=f"""You are a travel planning constraint extraction assistant. Your task is to analyze the user's modification request and update the existing constraints.
 
 EXISTING CONSTRAINTS:
-{json.dumps(previous_constraints, indent=2)}
+{json.dumps(existing_constraints, indent=2)}
 
 The user is requesting modifications to an existing travel plan. Analyze their message and update the constraints accordingly:
 - Budget in USD (if mentioned, otherwise keep existing)
@@ -117,10 +120,10 @@ If no specific constraint is mentioned, leave it as null or empty."""
             # Call the structured LLM to extract constraints
             extracted_constraints: TravelConstraints = structured_llm.invoke(prompt)
 
-            # If this is a modification request, merge with previous constraints
-            if previous_constraints:
-                # Start with previous constraints as base
-                merged_constraints = previous_constraints.copy()
+            # If this is a modification request, merge with existing constraints
+            if is_modification:
+                # Start with existing constraints as base
+                merged_constraints = existing_constraints.copy()
 
                 # Update with new constraints, only overriding non-null values
                 new_constraints_dict = extracted_constraints.dict()
@@ -158,7 +161,7 @@ If no specific constraint is mentioned, leave it as null or empty."""
                 "messages": [
                     AIMessage(
                         content=f"Updated constraints: {final_constraints}"
-                        if previous_constraints
+                        if is_modification
                         else f"Extracted constraints: {final_constraints}"
                     )
                 ],

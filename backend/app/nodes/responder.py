@@ -16,7 +16,13 @@ class ResponderNode(BaseNode):
             state["messages"]
             + [
                 SystemMessage(
-                    content="Summarize the itinerary, citations, and decisions into a markdown write up. Only return the markdown."
+                    content=f"""Summarize the itinerary, citations, and decisions
+                    into a markdown write up. Only include details found in the provided objects.
+                    Do not introduce new information, and only return the markdown.
+                    Itinerary: {state["itinerary"]}
+                    Citations: {state["citations"]}
+                    Decisions: {state["decisions"]}
+                    """
                 )
             ]
         )

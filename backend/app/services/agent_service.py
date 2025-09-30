@@ -9,16 +9,16 @@ from app.models.agent import AgentRun
 from app.models.user import User
 from app.nodes.intent import IntentNode
 from app.nodes.planner import PlannerNode
+from app.nodes.repair import RepairNode
 from app.nodes.responder import ResponderNode
 from app.nodes.synthesizer import SynthesizerNode
+from app.nodes.verifier import VerifierNode
 from app.schemas.agent import AgentState, Itinerary, PlanRequest, PlanResponse
-from fastapi.responses import StreamingResponse
 from langchain_core.messages import HumanMessage, SystemMessage
 
 # from langgraph.prebuilt import ToolExecutor
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, StateGraph
-from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 
@@ -51,13 +51,26 @@ def create_agent_workflow():
     workflow = StateGraph(AgentState)
     workflow.add_node("intent", IntentNode(model, tool_executor))
     workflow.add_node("planner", PlannerNode(model, tool_executor))
+    workflow.add_node("validator", VerifierNode(model, tool_executor))
+    workflow.add_node("repair", RepairNode(model, tool_executor))
     workflow.add_node("synthesizer", SynthesizerNode(model, tool_executor))
     workflow.add_node("responder", ResponderNode(model, tool_executor))
 
     workflow.set_entry_point("intent")
     workflow.add_edge("intent", "planner")
     workflow.add_edge("planner", "synthesizer")
-    workflow.add_edge("synthesizer", "responder")
+    workflow.add_edge("synthesizer", "validator")
+
+    def validator_router(state: AgentState):
+        """Route based on whether violations were found"""
+        violations = state.get("violations", [])
+        if len(violations) == 0:
+            return "responder"
+        else:
+            return "repair"
+
+    workflow.add_conditional_edges("validator", validator_router)
+    workflow.add_edge("repair", "synthesizer")
     workflow.add_edge("responder", END)
 
     return workflow.compile()
@@ -174,7 +187,7 @@ class AgentService:
         """Stream workflow execution with real-time updates"""
 
         # Check if this is a modification request
-        is_modification = initial_state.get("previous_constraints") is not None
+        is_modification = getattr(self, "_current_plan_id", None) is not None
 
         # Define status messages for each node
         if is_modification:
@@ -182,6 +195,8 @@ class AgentService:
                 "intent": "🔄 Analyzing your modification request...",
                 "planner": "📝 Updating your travel strategy...",
                 "synthesizer": "✨ Rebuilding your itinerary...",
+                "validator": "🔍 Validating your updated plan...",
+                "repair": "🔧 Fixing identified issues...",
                 "responder": "🎯 Finalizing your updated plan...",
             }
         else:
@@ -189,6 +204,8 @@ class AgentService:
                 "intent": "🚀 Understanding your travel preferences...",
                 "planner": "🌍 Building your travel strategy...",
                 "synthesizer": "📅 Creating your personalized itinerary...",
+                "validator": "🔍 Checking your itinerary for issues...",
+                "repair": "🔧 Optimizing your travel plan...",
                 "responder": "✅ Finalizing your travel plan...",
             }
 
@@ -297,22 +314,24 @@ class AgentService:
 
     def _create_initial_state(self, request: PlanRequest) -> AgentState:
         # Check if this is a modification request
-        previous_constraints = None
+        constraints = {}
         if request.plan_id:
             stored_plan = plans_storage.get(request.plan_id)
             if stored_plan:
-                previous_constraints = stored_plan.get("constraints")
+                # For modifications, start with the previous constraints
+                # The intent node will merge these with the new modification request
+                constraints = stored_plan.get("constraints", {})
 
         # Initialize agent state with system prompt
         return {
             "session_id": self.session_id,
             "messages": [create_system_message(), HumanMessage(content=request.prompt)],
-            "constraints": {},
-            "previous_constraints": previous_constraints,
+            "constraints": constraints,
             "plan": [],
             "itinerary": {},
             "citations": [],
             "decisions": [],
+            "violations": [],
             "answer_markdown": "",
             "done": False,
         }

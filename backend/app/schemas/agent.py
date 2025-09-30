@@ -85,11 +85,11 @@ class AgentState(TypedDict):
     session_id: str
     messages: Annotated[List[BaseMessage], operator.add]
     constraints: Any
-    previous_constraints: Optional[Any]  # For follow-on modifications
     plan: List[PlanStep]
     itinerary: Dict[str, Any]  # Will be converted to Itinerary when needed
     citations: Annotated[List[Citation], operator.add]
     decisions: List[str]
+    violations: List[str]  # Validation issues found by verifier
     answer_markdown: str
     done: bool
 
