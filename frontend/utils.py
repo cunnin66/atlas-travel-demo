@@ -1,3 +1,4 @@
+import json
 import os
 
 import requests
@@ -113,6 +114,62 @@ def is_authenticated():
     return st.session_state.get("access_token", False) and st.session_state.get(
         "refresh_token", False
     )
+
+
+def stream_request_with_auth(endpoint, json_data=None):
+    """Stream request with authentication for Server-Sent Events"""
+    headers = {
+        "Authorization": f"Bearer {st.session_state['access_token']}",
+        "Accept": "text/event-stream",
+        "Cache-Control": "no-cache",
+    }
+    url = f"{BACKEND_API_URL}/api/v1{endpoint}"
+
+    try:
+        response = requests.post(url, json=json_data, headers=headers, stream=True)
+
+        if response.status_code == 401:
+            if st.session_state["refresh_token"]:
+                if refresh_token():
+                    # Update headers with new access token after refresh
+                    headers = {
+                        "Authorization": f"Bearer {st.session_state['access_token']}",
+                        "Accept": "text/event-stream",
+                        "Cache-Control": "no-cache",
+                    }
+                    response = requests.post(
+                        url, json=json_data, headers=headers, stream=True
+                    )
+
+        if response.status_code == 401:
+            st.error("Error: Session has expired")
+            logout()
+            return None
+
+        return response
+
+    except Exception as e:
+        st.error(f"Error connecting to server: {str(e)}")
+        return None
+
+
+def parse_sse_stream(response):
+    """Parse Server-Sent Events stream and yield parsed data"""
+    if not response:
+        return
+
+    try:
+        for line in response.iter_lines(decode_unicode=True):
+            if line.startswith("data: "):
+                data_str = line[6:]  # Remove 'data: ' prefix
+                try:
+                    data = json.loads(data_str)
+                    yield data
+                except json.JSONDecodeError:
+                    # Skip malformed JSON
+                    continue
+    except Exception as e:
+        st.error(f"Error parsing stream: {str(e)}")
 
 
 def logout():

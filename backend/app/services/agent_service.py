@@ -38,11 +38,6 @@ def create_system_message() -> SystemMessage:
     )
 
 
-class StatusUpdate(BaseModel):
-    type: str = "status"
-    content: str  # payload, user-facing string, error message
-
-
 def create_agent_workflow():
     """Create and configure the agent workflow"""
     # Get tools from registry
@@ -102,28 +97,29 @@ class AgentService:
             created_at=self.run.started_at,
         )
 
-    async def stream_agent_response(self, request: PlanRequest) -> StreamingResponse:
+    async def stream_agent_response(self, request: PlanRequest):
         try:
             initial_state = self._initialize_agent(request)
+            final_state = None
+
             # Stream the agent workflow execution
             async for chunk in self._stream_workflow(initial_state):
                 yield f"data: {json.dumps(chunk)}\n\n"
 
-            # Send completion event
-            # To get the final_state from the streamed workflow, you need to capture the last node_output from the async generator.
-            # Here's an example of how you might do this:
-            final_state = None
-            async for chunk in self._stream_workflow(initial_state):
-                yield f"data: {json.dumps(chunk)}\n\n"
-                # If your stream yields the full state at the end, capture it here
+                # Capture final state when workflow completes
                 if isinstance(chunk, dict) and chunk.get("type") == "complete":
-                    final_state = chunk.get("content")
+                    final_state = chunk
 
-            self._update_run_record(
-                "completed",
-                final_state.get("plan_snapshot", {}),
-                final_state.get("tool_log", []),
-            )
+            # Update run record with completion status
+            if final_state:
+                self._update_run_record(
+                    "completed",
+                    final_state.get("plan_snapshot", {}),
+                    final_state.get("tool_log", []),
+                )
+            else:
+                self._update_run_record("completed", {}, [])
+
         except Exception as e:
             error_data = {
                 "type": "error",
@@ -131,62 +127,35 @@ class AgentService:
                 "session_id": self.session_id,
             }
             yield f"data: {json.dumps(error_data)}\n\n"
-            self._update_agent_run("failed")
+            self._update_run_record("failed", {}, [])
 
-    async def _stream_workflow(self, initial_state: AgentState) -> StreamingResponse:
+    async def _stream_workflow(self, initial_state: AgentState):
         """Stream workflow execution with real-time updates"""
+
+        # Define status messages for each node
+        node_messages = {
+            "intent": "Extracting constraints...",
+            "synthesizer": "Finalizing itinerary...",
+            "responder": "Generating final summary...",
+        }
 
         # Stream workflow execution
         async for event in workflow.astream(initial_state):
             for node_name, node_output in event.items():
-                if node_name == "intent":
-                    msg = "Extracting constraints..."
+                # Emit status message before processing node output
+                if node_name in node_messages:
+                    msg = node_messages[node_name]
                     print(msg)
                     yield {
                         "type": "message",
                         "content": msg,
                     }
-                elif node_name == "planner":
-                    msg = "Building a strategy..."
-                    print(msg)
-                    yield {
-                        "type": "message",
-                        "content": msg,
-                    }
-                elif node_name == "tools":
-                    msg = "Deciding on the next step..."
-                    print(msg)
-                    yield {
-                        "type": "message",
-                        "content": msg,
-                    }
-                elif node_name == "verifier":
-                    msg = "Validating itinerary constraints..."
-                    print(msg)
-                    yield {
-                        "type": "message",
-                        "content": msg,
-                    }
-                elif node_name == "repair":
-                    msg = "Identifying potential fixes..."
-                    print(msg)
-                    yield {
-                        "type": "message",
-                        "content": msg,
-                    }
-                elif node_name == "synthesizer":
-                    msg = "Finalizing itinerary..."
-                    print(msg)
-                    yield {
-                        "type": "message",
-                        "content": msg,
-                    }
-                elif node_name == "responder":
-                    msg = "Done."
-                    print(msg)
+
+                # Handle completion when responder node finishes
+                if node_name == "responder":
                     yield {
                         "type": "complete",
-                        "content": node_output.get("messages", [])[-1].content,
+                        "content": node_output.get("answer_markdown", ""),
                     }
 
     def _initialize_agent(self, request: PlanRequest) -> AgentState:

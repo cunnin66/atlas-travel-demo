@@ -61,7 +61,6 @@ class TravelConstraints(BaseModel):
 class IntentNode(BaseNode):
     def __call__(self, state):
         print(f"---INTENT NODE ({state['session_id']})---")
-
         # Create a structured output model for the LLM
         structured_llm = self.llm_model.with_structured_output(TravelConstraints)
 

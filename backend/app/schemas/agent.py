@@ -14,6 +14,11 @@ class PlanRequest(BaseModel):
     prompt: str
 
 
+class StatusUpdate(BaseModel):
+    type: str = "status"
+    content: str  # payload, user-facing string, error message
+
+
 class NodeEvent(BaseModel):
     """Node event schema"""
 
