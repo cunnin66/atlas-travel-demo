@@ -1,0 +1,5 @@
+[theme]
+    primaryColor="#24bf7f" # Replace with your desired hex color code
+
+[client]
+showSidebarNavigation = false

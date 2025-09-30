@@ -1,12 +1,11 @@
 import streamlit as st
+from components.menu import menu_with_redirect
 
-st.set_page_config(
-    page_title="Admin Panel - Atlas Travel Advisor",
-    page_icon="⚙️",
-    layout="wide"
-)
 
-st.title("⚙️ Admin Panel")
+
+menu_with_redirect()
+
+st.markdown("## ⚙️ Admin Panel")
 
 st.write("TODO: Build this page.")
 
