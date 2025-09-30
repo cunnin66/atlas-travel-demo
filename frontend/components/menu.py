@@ -5,16 +5,12 @@ from utils import is_authenticated
 
 def authenticated_menu():
     # Show a navigation menu for authenticated users
-    #st.sidebar.page_link("app.py", label="Switch accounts")
+    # st.sidebar.page_link("app.py", label="Switch accounts")
     header()
     st.sidebar.page_link("pages/home.py", label="Home", icon="🏠")
     st.sidebar.page_link("pages/admin.py", label="Admin", icon="⚙️")
     st.sidebar.page_link("app.py", label="Log Out", icon="⬅️")
-    st.set_page_config(
-        page_title="Atlas Travel Advisor",
-        page_icon="🌍",
-        layout="wide"
-    )
+    st.set_page_config(page_title="Atlas Travel Advisor", page_icon="🌍", layout="wide")
 
 
 def unauthenticated_menu():
@@ -23,9 +19,7 @@ def unauthenticated_menu():
     st.sidebar.page_link("app.py", label="Log in")
     st.sidebar.page_link("pages/register.py", label="Register")
     st.set_page_config(
-        page_title="Atlas Travel Advisor",
-        page_icon="🌍",
-        layout="centered"
+        page_title="Atlas Travel Advisor", page_icon="🌍", layout="centered"
     )
 
 

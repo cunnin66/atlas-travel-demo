@@ -1,8 +1,8 @@
-import streamlit as st
 from time import sleep
-from components.menu import menu
-from utils import submit_login, initialize_session_state
 
+import streamlit as st
+from components.menu import menu
+from utils import initialize_session_state, submit_login
 
 st.logo("assets/Atlas-logo.png", size="large")
 
@@ -22,6 +22,3 @@ if st.button("Login"):
         st.success("Logged in successfully!")
         sleep(1)
         st.switch_page("pages/home.py")  # Rerun the script to reflect the login state
-
-
-

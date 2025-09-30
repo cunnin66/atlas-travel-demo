@@ -17,7 +17,7 @@ scenarios:
       - "budget breakdown"
       - "museum recommendations"
       - "restaurant suggestions"
-    
+
   - name: "Budget-Conscious Planning"
     description: "Test planning with strict budget constraints"
     input:
@@ -32,7 +32,7 @@ scenarios:
       - "budget-friendly accommodations"
       - "free cultural activities"
       - "affordable dining options"
-    
+
   - name: "Family Trip Planning"
     description: "Test planning for families with children"
     input:
@@ -48,7 +48,7 @@ scenarios:
       - "family-friendly activities"
       - "child-appropriate restaurants"
       - "stroller-friendly itinerary"
-    
+
   - name: "Adventure Travel"
     description: "Test planning for adventure and outdoor activities"
     input:
@@ -63,7 +63,7 @@ scenarios:
       - "hiking trails and difficulty levels"
       - "wildlife viewing opportunities"
       - "adventure activity bookings"
-    
+
   - name: "Cultural Immersion"
     description: "Test planning for cultural and educational travel"
     input:
@@ -83,15 +83,15 @@ evaluation_criteria:
   - name: "Relevance"
     description: "How well the itinerary matches user preferences"
     weight: 0.3
-    
+
   - name: "Feasibility"
     description: "Whether the itinerary is logistically possible"
     weight: 0.25
-    
+
   - name: "Budget Adherence"
     description: "How well the plan stays within budget"
     weight: 0.25
-    
+
   - name: "Completeness"
     description: "Whether all aspects of travel are covered"
     weight: 0.2

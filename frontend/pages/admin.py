@@ -1,15 +1,14 @@
 import streamlit as st
 from components.menu import menu_with_redirect
 
-
-
 menu_with_redirect()
 
 st.markdown("## ⚙️ Admin Panel")
 
 st.write("TODO: Build this page.")
 
-st.markdown("""
+st.markdown(
+    """
 Admin functionality includes:
 - User management (create, edit, deactivate users)
 - Organization management
@@ -18,4 +17,5 @@ Admin functionality includes:
 - Knowledge base management
 - System configuration
 - Audit logs and user activity
-""")
+"""
+)

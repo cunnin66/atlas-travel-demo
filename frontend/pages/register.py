@@ -1,7 +1,8 @@
+from time import sleep
+
 import streamlit as st
 from components.menu import menu
 from utils import submit_register
-from time import sleep
 
 menu()
 st.subheader("Registration 📝")
@@ -16,4 +17,3 @@ if st.button("Register"):
         st.success("Registered successfully!")
         sleep(1)
         st.switch_page("pages/home.py")  # Rerun the script to reflect the login state
-
