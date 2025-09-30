@@ -20,7 +20,7 @@ app.add_middleware(
 
 # Include API routes
 app.include_router(auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
-app.include_router(agent.router, prefix=f"{settings.API_V1_STR}/agent", tags=["agent"])
+app.include_router(agent.router, prefix=f"{settings.API_V1_STR}/qa", tags=["agent"])
 app.include_router(
     destinations.router,
     prefix=f"{settings.API_V1_STR}/destinations",

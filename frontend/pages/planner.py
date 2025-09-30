@@ -7,10 +7,13 @@ from pages.destination import get_destination
 from utils import request_with_auth
 
 
-def submit_trip_request(prompt):
-    response = request_with_auth("POST", "/trip-requests", json={"prompt": prompt})
+def submit_trip_request(dest_id, prompt):
+    response = request_with_auth(
+        "POST", "/qa/plan", json={"destination_id": dest_id, "prompt": prompt}
+    )
     if response.status_code == 200:
-        st.success("Trip request submitted successfully!")
+        st.success("Trip request completed successfully!")
+        return response.json()
     else:
         st.error(
             f"Error: Unable to submit trip request (status code {response.status_code})"
@@ -55,4 +58,18 @@ else:
         if st.button("< Back", type="secondary"):
             st.switch_page("pages/home.py")
         if st.button("Go", type="primary"):
-            submit_trip_request(prompt)
+            # Clear any previous plan
+            if "current_plan" in st.session_state:
+                del st.session_state["current_plan"]
+
+            # Show loading message
+            with st.spinner("Creating your travel plan..."):
+                plan = submit_trip_request(destination["id"], prompt)
+                if plan:
+                    st.session_state["current_plan"] = plan
+
+    # Display the plan if it exists in session state
+    if "current_plan" in st.session_state and st.session_state["current_plan"]:
+        plan = st.session_state["current_plan"]
+        if "answer_markdown" in plan and plan["answer_markdown"]:
+            st.markdown(plan["answer_markdown"])
