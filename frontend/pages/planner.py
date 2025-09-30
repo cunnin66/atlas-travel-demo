@@ -29,8 +29,8 @@ def add_message_to_history(role: str, content: str, plan_data: Optional[Dict] = 
     st.session_state.conversation_history.append(message)
 
 
-def stream_fake_trip_request(dest_id: int, prompt: str, plan_id: Optional[str] = None):
-    """Stream fake trip planning request using the new fakeStream endpoint"""
+def stream_trip_request(dest_id: int, prompt: str, plan_id: Optional[str] = None):
+    """Stream trip planning request using the AI agent stream endpoint"""
 
     # Prepare request data
     request_data = {"destination_id": dest_id, "prompt": prompt}
@@ -40,8 +40,8 @@ def stream_fake_trip_request(dest_id: int, prompt: str, plan_id: Optional[str] =
     # Create placeholders for streaming updates
     status_container = st.empty()
 
-    # Start streaming request to fake endpoint
-    response = stream_request_with_auth("/qa/fakeStream", json_data=request_data)
+    # Start streaming request to AI agent endpoint
+    response = stream_request_with_auth("/qa/stream", json_data=request_data)
 
     if not response:
         st.error("Failed to connect to the planning service")
@@ -216,7 +216,7 @@ else:
 
             # Stream the response
             with st.spinner("🤖 AI is thinking..."):
-                result = stream_fake_trip_request(
+                result = stream_trip_request(
                     destination["id"],
                     user_input.strip(),
                     st.session_state.current_plan_id,

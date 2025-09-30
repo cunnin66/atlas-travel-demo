@@ -3,6 +3,7 @@ import json
 import time
 import uuid
 from datetime import datetime
+from typing import Dict
 
 from app.models.agent import AgentRun
 from app.models.user import User
@@ -56,7 +57,6 @@ def create_agent_workflow():
     workflow.set_entry_point("intent")
     workflow.add_edge("intent", "planner")
     workflow.add_edge("planner", "synthesizer")
-    workflow.add_edge("intent", "synthesizer")
     workflow.add_edge("synthesizer", "responder")
     workflow.add_edge("responder", END)
 
@@ -67,14 +67,21 @@ def create_agent_workflow():
 # Exits when complete, meaning we need to offload the final plan
 workflow = create_agent_workflow()
 
+# In-memory storage for plans (in production, this would be in a database)
+plans_storage: Dict[str, Dict] = {}
+
 
 class AgentService:
     def __init__(self, user: User, db: Session):
         self.db = db
         self.user = user
         self.session_id = str(uuid.uuid4())
+        self._current_plan_id = None
 
     async def create_travel_plan(self, request: PlanRequest) -> PlanResponse:
+        # Store the plan_id for modifications
+        self._current_plan_id = request.plan_id
+
         initial_state = self._initialize_agent(request)
         final_state = await asyncio.to_thread(workflow.invoke, initial_state)
 
@@ -91,8 +98,15 @@ class AgentService:
                 final_state.get("tool_log", []),
             )
 
-        return PlanResponse(
-            id=self.run.id,
+        # Generate or reuse plan ID
+        is_modification = request.plan_id is not None
+        if is_modification:
+            plan_id = request.plan_id
+        else:
+            plan_id = str(uuid.uuid4())
+
+        plan_response = PlanResponse(
+            plan_id=plan_id,
             query=request.prompt,
             answer_markdown=final_state.get("answer_markdown", ""),
             itinerary=final_state.get("itinerary", {}),
@@ -103,8 +117,29 @@ class AgentService:
             created_at=self.run.started_at,
         )
 
+        # Store the plan with constraints for future modifications
+        plans_storage[plan_id] = {
+            "plan": plan_response.dict(),
+            "constraints": final_state.get("constraints", {}),
+        }
+
+        return plan_response
+
     async def stream_agent_response(self, request: PlanRequest):
         try:
+            # Store the plan_id for modifications
+            self._current_plan_id = request.plan_id
+
+            # Check if this is a modification request
+            is_modification = request.plan_id is not None
+            if is_modification and request.plan_id not in plans_storage:
+                error_data = {
+                    "type": "error",
+                    "content": f"Plan with ID {request.plan_id} not found",
+                }
+                yield f"data: {json.dumps(error_data)}\n\n"
+                return
+
             initial_state = self._initialize_agent(request)
             final_state = None
 
@@ -113,14 +148,14 @@ class AgentService:
                 yield f"data: {json.dumps(chunk)}\n\n"
 
                 # Capture final state when workflow completes
-                if isinstance(chunk, dict) and chunk.get("type") == "complete":
+                if isinstance(chunk, dict) and chunk.get("type") == "plan_complete":
                     final_state = chunk
 
             # Update run record with completion status
             if final_state:
                 self._update_run_record(
                     "completed",
-                    final_state.get("plan_snapshot", {}),
+                    final_state.get("plan_data", {}),
                     final_state.get("tool_log", []),
                 )
             else:
@@ -138,32 +173,86 @@ class AgentService:
     async def _stream_workflow(self, initial_state: AgentState):
         """Stream workflow execution with real-time updates"""
 
+        # Check if this is a modification request
+        is_modification = initial_state.get("previous_constraints") is not None
+
         # Define status messages for each node
-        node_messages = {
-            "intent": "Extracting constraints...",
-            "planner": "Building a strategy...",
-            "synthesizer": "Finalizing itinerary...",
-            "responder": "Generating final summary...",
-        }
+        if is_modification:
+            node_messages = {
+                "intent": "🔄 Analyzing your modification request...",
+                "planner": "📝 Updating your travel strategy...",
+                "synthesizer": "✨ Rebuilding your itinerary...",
+                "responder": "🎯 Finalizing your updated plan...",
+            }
+        else:
+            node_messages = {
+                "intent": "🚀 Understanding your travel preferences...",
+                "planner": "🌍 Building your travel strategy...",
+                "synthesizer": "📅 Creating your personalized itinerary...",
+                "responder": "✅ Finalizing your travel plan...",
+            }
+
+        current_node = None
+        final_state = None
 
         # Stream workflow execution
         async for event in workflow.astream(initial_state):
             for node_name, node_output in event.items():
-                # Emit status message before processing node output
-                if node_name in node_messages:
-                    msg = node_messages[node_name]
-                    print(msg)
+                # Emit status message when starting a new node
+                if node_name != current_node and node_name in node_messages:
+                    current_node = node_name
                     yield {
-                        "type": "message",
-                        "content": msg,
+                        "type": "status",
+                        "content": node_messages[node_name],
                     }
+                    # Add a small delay to make the streaming feel more natural
+                    await asyncio.sleep(1)
 
-                # Handle completion when responder node finishes
+                # Capture the final state from the responder node
                 if node_name == "responder":
-                    yield {
-                        "type": "complete",
-                        "content": node_output.get("answer_markdown", ""),
-                    }
+                    final_state = node_output
+
+        # Generate the final plan response
+        if final_state and final_state.get("done"):
+            # Create a plan response
+            plan_response = PlanResponse(
+                query=initial_state["messages"][-1].content,
+                answer_markdown=final_state.get("answer_markdown", ""),
+                itinerary=final_state.get("itinerary", {}),
+                citations=final_state.get("citations", []),
+                tools_used=[],  # TODO: Add tool usage tracking
+                decisions=final_state.get("decisions", []),
+                status="completed",
+                created_at=datetime.now(),
+            )
+
+            # Generate or reuse plan ID
+            if is_modification:
+                # For modifications, we need to get the plan_id from the request
+                # We'll need to pass this through the initial state
+                plan_id = getattr(self, "_current_plan_id", str(uuid.uuid4()))
+            else:
+                plan_id = str(uuid.uuid4())
+            plan_response.plan_id = plan_id
+
+            # Store the plan with constraints for future modifications
+            plans_storage[plan_id] = {
+                "plan": plan_response.dict(),
+                "constraints": final_state.get("constraints", {}),
+            }
+
+            # Create final response matching fakeStream format
+            final_response = {
+                "type": "plan_complete",
+                "plan_id": plan_id,
+                "is_edit": is_modification,
+                "plan": plan_response.dict(),
+            }
+
+            yield final_response
+
+            # Send completion signal to match fakeStream format
+            yield {"type": "done"}
 
     def _initialize_agent(self, request: PlanRequest) -> AgentState:
         self._create_run_record()
@@ -195,11 +284,19 @@ class AgentService:
         self.db.refresh(self.run)
 
     def _create_initial_state(self, request: PlanRequest) -> AgentState:
+        # Check if this is a modification request
+        previous_constraints = None
+        if request.plan_id:
+            stored_plan = plans_storage.get(request.plan_id)
+            if stored_plan:
+                previous_constraints = stored_plan.get("constraints")
+
         # Initialize agent state with system prompt
         return {
             "session_id": self.session_id,
             "messages": [create_system_message(), HumanMessage(content=request.prompt)],
             "constraints": {},
+            "previous_constraints": previous_constraints,
             "plan": [],
             "itinerary": {},
             "citations": [],

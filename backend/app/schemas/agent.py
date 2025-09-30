@@ -12,6 +12,7 @@ class PlanRequest(BaseModel):
 
     destination_id: int
     prompt: str
+    plan_id: Optional[str] = None  # If provided, this is a modification request
 
 
 class StatusUpdate(BaseModel):
@@ -84,6 +85,7 @@ class AgentState(TypedDict):
     session_id: str
     messages: Annotated[List[BaseMessage], operator.add]
     constraints: Any
+    previous_constraints: Optional[Any]  # For follow-on modifications
     plan: List[PlanStep]
     itinerary: Dict[str, Any]  # Will be converted to Itinerary when needed
     citations: Annotated[List[Citation], operator.add]
@@ -95,6 +97,7 @@ class AgentState(TypedDict):
 class PlanResponse(BaseModel):
     """Travel plan response schema"""
 
+    plan_id: Optional[str] = None  # Unique identifier for the plan
     query: str
     answer_markdown: str
     itinerary: Itinerary
