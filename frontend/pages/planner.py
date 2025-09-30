@@ -3,6 +3,7 @@ import sys
 
 import streamlit as st
 from components.menu import menu_with_redirect
+from pages.destination import get_destination
 from utils import request_with_auth
 
 
@@ -16,9 +17,10 @@ def submit_trip_request(prompt):
         )
 
 
+destination = get_destination(st.session_state.selected_destination)
 menu_with_redirect()
 
-if "selected_destination" not in st.session_state:
+if destination is None:
     st.subheader("Unknown Destination!")
 
     st.markdown(
@@ -30,7 +32,7 @@ if "selected_destination" not in st.session_state:
         st.switch_page("pages/home.py")
 
 else:
-    st.subheader(f"🗺️ Plan Your Trip for {st.session_state.selected_destination}")
+    st.subheader(f"🗺️ Plan Your Trip for {destination['name']}")
     st.write(
         "Tell us what you're looking to do on your trip, and we'll help you plan it!"
     )

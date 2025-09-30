@@ -54,7 +54,7 @@ else:
                                 width="stretch",
                                 type="primary",
                             ):
-                                st.session_state.selected_destination = dest["name"]
+                                st.session_state.selected_destination = dest["id"]
                                 st.switch_page("pages/planner.py")
                                 st.rerun()
                         with button_cols[1]:
@@ -64,7 +64,7 @@ else:
                                 width="stretch",
                                 type="secondary",
                             ):
-                                st.session_state.edit_destination = dest["name"]
+                                st.session_state.edit_destination = dest["id"]
                                 st.switch_page("pages/destination.py")
                                 st.rerun()
 

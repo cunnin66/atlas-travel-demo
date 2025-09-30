@@ -89,8 +89,12 @@ async def update_destination(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Destination not found"
         )
-    destination.name = destination_data.name
-    destination.description = destination_data.description
+    # Update all fields present in the request that exist on the model
+    update_data = destination_data.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        if hasattr(destination, field):
+            setattr(destination, field, value)
+
     db.commit()
     db.refresh(destination)
     return destination

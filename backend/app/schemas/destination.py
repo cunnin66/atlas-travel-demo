@@ -23,7 +23,6 @@ class DestinationUpdate(BaseModel):
     """Destination update schema"""
 
     name: Optional[str] = None
-    country: Optional[str] = None
     description: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
