@@ -138,9 +138,9 @@ else:
     # Header section
     col1, col2 = st.columns([3, 1])
 
-    with col1:
-        st.title("🗺️ AI Travel Planner")
-        st.subheader(f"Planning your trip to {destination['name']}")
+    # with col1:
+    # st.title("🗺️ AI Travel Planner")
+    # st.subheader(f"Planning your trip to {destination['name']}")
 
     with col2:
         with st.container(horizontal=True):
@@ -152,17 +152,18 @@ else:
 
     # Show helpful tips if no conversation started
     if not st.session_state.conversation_history:
-        st.info(
+        st.markdown(
             """
             💡 **Get started by describing your ideal trip!**
 
             Include details like:
-            • Length of trip (e.g., "3 days", "a weekend")
-            • Budget range (e.g., "$500 total", "mid-range")
-            • Interests (e.g., "museums", "nightlife", "nature")
-            • Travel style (e.g., "relaxed", "packed with activities")
-            • Special requirements (e.g., "vegetarian food", "accessible venues")
-            """
+            - Length of trip (e.g., "3 days", "a weekend")
+            - Budget range (e.g., "$500 total", "mid-range")
+            - Interests (e.g., "museums", "nightlife", "nature")
+            - Travel style (e.g., "relaxed", "packed with activities")
+            - Special requirements (e.g., "vegetarian food", "accessible venues")
+            """,
+            unsafe_allow_html=True,
         )
 
     # Chat interface container
@@ -197,7 +198,7 @@ else:
         with col2:
             st.markdown("<br>", unsafe_allow_html=True)  # Add some spacing
             submit_button = st.form_submit_button(
-                "✈️ Plan" if not is_modification else "🔄 Update",
+                "Plan" if not is_modification else "Update",
                 type="primary",
                 use_container_width=True,
             )

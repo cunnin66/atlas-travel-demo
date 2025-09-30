@@ -193,7 +193,7 @@ class AgentService:
             }
 
         current_node = None
-        final_state = None
+        accumulated_state = initial_state.copy()
 
         # Stream workflow execution
         async for event in workflow.astream(initial_state):
@@ -208,20 +208,31 @@ class AgentService:
                     # Add a small delay to make the streaming feel more natural
                     await asyncio.sleep(1)
 
-                # Capture the final state from the responder node
-                if node_name == "responder":
-                    final_state = node_output
+                # Accumulate state from each node
+                accumulated_state.update(node_output)
 
         # Generate the final plan response
-        if final_state and final_state.get("done"):
+        if accumulated_state.get("done"):
+            print(f"Accumulated state: {accumulated_state}")
+
+            itinerary_dict = accumulated_state.get("itinerary", {})
+            try:
+                itinerary = (
+                    Itinerary(**itinerary_dict) if itinerary_dict else Itinerary()
+                )
+            except Exception as e:
+                print(f"Error creating Itinerary object: {e}")
+                print(f"Itinerary dict was: {itinerary_dict}")
+                itinerary = Itinerary()
+
             # Create a plan response
             plan_response = PlanResponse(
                 query=initial_state["messages"][-1].content,
-                answer_markdown=final_state.get("answer_markdown", ""),
-                itinerary=final_state.get("itinerary", {}),
-                citations=final_state.get("citations", []),
+                answer_markdown=accumulated_state.get("answer_markdown", ""),
+                itinerary=itinerary,
+                citations=accumulated_state.get("citations", []),
                 tools_used=[],  # TODO: Add tool usage tracking
-                decisions=final_state.get("decisions", []),
+                decisions=accumulated_state.get("decisions", []),
                 status="completed",
                 created_at=datetime.now(),
             )
@@ -238,7 +249,7 @@ class AgentService:
             # Store the plan with constraints for future modifications
             plans_storage[plan_id] = {
                 "plan": plan_response.dict(),
-                "constraints": final_state.get("constraints", {}),
+                "constraints": accumulated_state.get("constraints", {}),
             }
 
             # Create final response matching fakeStream format
@@ -246,13 +257,14 @@ class AgentService:
                 "type": "plan_complete",
                 "plan_id": plan_id,
                 "is_edit": is_modification,
-                "plan": plan_response.dict(),
+                "plan": plan_response.model_dump(mode="json"),
             }
 
+            print(f"Sending final response: {final_response}")
             yield final_response
 
-            # Send completion signal to match fakeStream format
-            yield {"type": "done"}
+        # Send completion signal - this will be wrapped with "data: " by stream_agent_response
+        yield "[DONE]"
 
     def _initialize_agent(self, request: PlanRequest) -> AgentState:
         self._create_run_record()
