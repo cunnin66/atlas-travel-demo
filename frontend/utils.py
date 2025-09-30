@@ -20,7 +20,7 @@ def initialize_session_state():
 def refresh_token():
     response = requests.post(
         f"{BACKEND_API_URL}/api/v1/auth/refresh",
-        data={"refresh_token": st.session_state["refresh_token"]},
+        json={"refresh_token": st.session_state["refresh_token"]},
     )
     if response.status_code == 200:
         st.session_state["access_token"] = response.json()["access_token"]
@@ -50,6 +50,10 @@ def request_with_auth(method, endpoint, json=None):
     if response.status_code == 401:
         if st.session_state["refresh_token"]:
             if refresh_token():
+                # Update headers with new access token after refresh
+                headers = {
+                    "Authorization": f"Bearer {st.session_state['access_token']}"
+                }
                 response = send_request(method, url, json, headers)
 
     if response.status_code == 401:
@@ -112,11 +116,17 @@ def is_authenticated():
 
 
 def logout():
-    response = send_request(
-        "POST",
-        f"{BACKEND_API_URL}/api/v1/auth/logout",
-        json={"token": st.session_state["refresh_token"]},
-    )
+    # Only attempt logout if we have tokens
+    if st.session_state.get("access_token"):
+        headers = {"Authorization": f"Bearer {st.session_state['access_token']}"}
+        response = send_request(
+            "POST",
+            f"{BACKEND_API_URL}/api/v1/auth/logout",
+            json={},  # Backend doesn't expect any JSON data
+            headers=headers,
+        )
+
+    # Clear tokens regardless of logout success
     st.session_state["access_token"] = False
     st.session_state["refresh_token"] = False
     st.switch_page("app.py")

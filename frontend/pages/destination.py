@@ -44,9 +44,11 @@ def get_destination(destination_id):
         return None
 
 
-destination = st.session_state.edit_destination and get_destination(
-    st.session_state.edit_destination
-)
+if "edit_destination" in st.session_state:
+    destination = get_destination(st.session_state.edit_destination)
+else:
+    destination = None
+
 files = []
 menu_with_redirect()
 
