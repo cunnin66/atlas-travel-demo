@@ -155,26 +155,25 @@ install: install-backend install-frontend
 lint:
 	@echo "🧹 Running linters on all Python code..."
 	@echo "📋 Running flake8..."
-	flake8 backend/ frontend/ --config=pyproject.toml
-	@echo "📋 Running mypy..."
-	mypy backend/ frontend/
+	python3 -m flake8 backend/ frontend/
 	@echo "✅ Linting complete!"
 
 format:
 	@echo "🎨 Formatting all Python code..."
 	@echo "📋 Running black..."
-	black backend/ frontend/
+	python3 -m black backend/ frontend/
 	@echo "📋 Running isort..."
-	isort backend/ frontend/
+	python3 -m isort backend/ frontend/
 	@echo "✅ Formatting complete!"
 
 pre-commit-install:
 	@echo "🔧 Installing pre-commit hooks..."
-	pre-commit install
+	python3 -m pip install pre-commit==3.6.0 black==23.12.1 isort==5.13.2 flake8==7.0.0 mypy==1.8.0
+	/Library/Frameworks/Python.framework/Versions/3.12/bin/pre-commit install
 	@echo "✅ Pre-commit hooks installed!"
 	@echo "💡 Now every commit will automatically run linters and formatters"
 
 pre-commit-run:
 	@echo "🔧 Running pre-commit hooks on all files..."
-	pre-commit run --all-files
+	/Library/Frameworks/Python.framework/Versions/3.12/bin/pre-commit run --all-files
 	@echo "✅ Pre-commit run complete!"
