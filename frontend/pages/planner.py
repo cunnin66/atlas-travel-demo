@@ -26,7 +26,8 @@ if "selected_destination" not in st.session_state:
     Oops! There was an error: no destination selected. Please navigate back to the [Home Page](./home) to choose a destination.
     """
     )
-    st.link_button("Home Page", "pages/home.py")
+    if st.button("< Back", type="secondary"):
+        st.switch_page("pages/home.py")
 
 else:
     st.subheader(f"🗺️ Plan Your Trip for {st.session_state.selected_destination}")

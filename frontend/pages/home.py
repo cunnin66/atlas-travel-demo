@@ -13,23 +13,11 @@ def get_destinations():
     if response.status_code == 200:
         return response.json()
     else:
-        # st.error(f"Error: Unable to get destinations (status code {response.status_code})")
         return []
 
 
 menu_with_redirect()
 st.markdown("## Where to?")
-# st.markdown("---")
-
-# Mock destinations data (replace with actual data later)
-default_destinations = [
-    {"name": "Paris, France", "image": "🇫🇷", "description": "City of Light"},
-    {"name": "Tokyo, Japan", "image": "🇯🇵", "description": "Modern Metropolis"},
-    {"name": "New York, USA", "image": "🇺🇸", "description": "The Big Apple"},
-    {"name": "Bali, Indonesia", "image": "🇮🇩", "description": "Tropical Paradise"},
-    {"name": "Rome, Italy", "image": "🇮🇹", "description": "Eternal City"},
-    {"name": "Sydney, Australia", "image": "🇦🇺", "description": "Harbor City"},
-]
 
 destinations = get_destinations()
 
@@ -77,7 +65,7 @@ else:
                                 type="secondary",
                             ):
                                 st.session_state.edit_destination = dest["name"]
-                                st.switch_page("pages/destinations.py")
+                                st.switch_page("pages/destination.py")
                                 st.rerun()
 
 

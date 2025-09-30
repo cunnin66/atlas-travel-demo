@@ -5,7 +5,9 @@ from app.core.security import (
     create_new_organization,
     create_new_user,
     create_refresh_token,
+    get_user_by_refresh_token,
     is_email_available,
+    is_refresh_token_valid,
 )
 from app.models.token import RefreshToken
 from app.models.user import User, scrubUser
@@ -53,8 +55,14 @@ async def login(
 @router.post("/refresh", response_model=Token)
 async def refresh_token(token_data: TokenRefresh, db: Session = Depends(get_db)):
     """Refresh access token"""
-    # TODO: Implement token refresh
-    pass
+    if is_refresh_token_valid(token_data.refresh_token, db):
+        token_user = get_user_by_refresh_token(token_data.refresh_token, db)
+        access_token = create_access_token(token_user)
+        return Token(access_token=access_token, refresh_token=token_data.refresh_token)
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid refresh token",
+    )
 
 
 @router.post("/logout")

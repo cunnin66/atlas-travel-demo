@@ -164,6 +164,16 @@ def get_user_by_access_token(token: str, db: Session) -> Optional[User]:
     return db.query(User).filter(User.id == user_id).first()
 
 
+def get_user_by_refresh_token(token: str, db: Session) -> Optional[User]:
+    """Get user by token"""
+    if not is_refresh_token_valid(token, db):
+        return None
+
+    payload = get_token_payload(token)
+    user_id = int(payload["sub"])  # Convert string back to integer
+    return db.query(User).filter(User.id == user_id).first()
+
+
 def hash_password(password: str) -> str:
     """Hash password using Argon2id"""
     try:
