@@ -53,17 +53,17 @@ An Agentic AI Travel Planning Platform that demonstrates modern full-stack devel
    ```
 
 2. **Start the services (choose one method)**
-   
+
    **Option A: Using Make (recommended)**
    ```bash
    make start
    ```
-   
+
    **Option B: Using the Atlas CLI script**
    ```bash
    ./atlas.sh start
    ```
-   
+
    **Option C: Using Docker Compose directly**
    ```bash
    docker compose up --build
