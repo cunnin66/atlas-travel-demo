@@ -4,16 +4,18 @@ from app.core.security import get_user_by_access_token
 from app.database import get_db
 from app.models.user import User
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 security = HTTPBearer()
 
 
 def get_current_user(
-    db: Session = Depends(get_db), token: str = Depends(security)
+    db: Session = Depends(get_db),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> User:
     """Get current authenticated user"""
+    token = credentials.credentials  # Extract the actual JWT token
     valid_user = get_user_by_access_token(token, db)
     if not valid_user:
         raise HTTPException(

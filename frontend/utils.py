@@ -17,9 +17,19 @@ def initialize_session_state():
         logout()
 
 
-def request_with_auth(method, endpoint, json=None):
-    headers = {"Authorization": f"Bearer {st.session_state['access_token']}"}
-    url = f"{BACKEND_API_URL}/api/v1{endpoint}"
+def refresh_token():
+    response = requests.post(
+        f"{BACKEND_API_URL}/api/v1/auth/refresh",
+        data={"refresh_token": st.session_state["refresh_token"]},
+    )
+    if response.status_code == 200:
+        st.session_state["access_token"] = response.json()["access_token"]
+        return True
+    else:
+        return False
+
+
+def send_request(method, url, json=None, headers=None):
     if method == "POST":
         return requests.post(url, json=json, headers=headers)
     elif method == "GET":
@@ -30,6 +40,24 @@ def request_with_auth(method, endpoint, json=None):
         return requests.delete(url, headers=headers)
     else:
         raise ValueError(f"Invalid method: {method}")
+
+
+def request_with_auth(method, endpoint, json=None):
+    headers = {"Authorization": f"Bearer {st.session_state['access_token']}"}
+    url = f"{BACKEND_API_URL}/api/v1{endpoint}"
+    response = send_request(method, url, json, headers)
+
+    if response.status_code == 401:
+        if st.session_state["refresh_token"]:
+            if refresh_token():
+                response = send_request(method, url, json, headers)
+
+    if response.status_code == 401:
+        st.error("Error: Session has expired")
+        logout()
+        return
+
+    return response
 
 
 def submit_login(username, password):
@@ -84,8 +112,10 @@ def is_authenticated():
 
 
 def logout():
-    response = request_with_auth(
-        "POST", "/auth/logout", json={"token": st.session_state["refresh_token"]}
+    response = send_request(
+        "POST",
+        f"{BACKEND_API_URL}/api/v1/auth/logout",
+        json={"token": st.session_state["refresh_token"]},
     )
     st.session_state["access_token"] = False
     st.session_state["refresh_token"] = False

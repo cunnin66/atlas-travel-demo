@@ -2,39 +2,53 @@ import os
 import sys
 
 import streamlit as st
-
-# Add the parent directory to Python path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from components.navigation import check_authentication, render_navigation
+from components.menu import menu_with_redirect
+from pages.destination import get_destination
+from utils import request_with_auth
 
 
-def show():
-    """Display the planner page"""
+def submit_trip_request(prompt):
+    response = request_with_auth("POST", "/trip-requests", json={"prompt": prompt})
+    if response.status_code == 200:
+        st.success("Trip request submitted successfully!")
+    else:
+        st.error(
+            f"Error: Unable to submit trip request (status code {response.status_code})"
+        )
 
-    # Check authentication - redirect to login if not authenticated
-    if not check_authentication():
-        return
 
-    # Render navigation bar
-    render_navigation()
+destination = get_destination(st.session_state.selected_destination)
+menu_with_redirect()
 
-    st.title("🗺️ Plan Your Trip")
-
-    # Check if a destination was selected from home page
-    if "selected_destination" in st.session_state:
-        st.success(f"Planning trip to: {st.session_state.selected_destination}")
-
-    st.write("TODO: Build this page.")
+if destination is None:
+    st.subheader("Unknown Destination!")
 
     st.markdown(
         """
-    This is the main AI planning interface where you can:
-    - Input your travel preferences and requirements
-    - Chat with the AI travel agent
-    - Generate personalized itineraries
-    - Modify and refine travel plans
-    - Export itineraries
-    - Real-time streaming responses from the AI agent
+    Oops! There was an error: no destination selected. Please navigate back to the [Home Page](./home) to choose a destination.
     """
     )
+    if st.button("< Back", type="secondary"):
+        st.switch_page("pages/home.py")
+
+else:
+    st.subheader(f"🗺️ Plan Your Trip for {destination['name']}")
+    st.write(
+        "Tell us what you're looking to do on your trip, and we'll help you plan it!"
+    )
+    st.markdown(
+        """
+        **Example criteria to include:**
+        - Length of trip
+        - Budget
+        - Interests and Activity Preferences
+        - Travel constraints
+        """
+    )
+
+    prompt = st.text_area("")
+    with st.container(horizontal_alignment="left", horizontal=True):
+        if st.button("< Back", type="secondary"):
+            st.switch_page("pages/home.py")
+        if st.button("Go", type="primary"):
+            submit_trip_request(prompt)
