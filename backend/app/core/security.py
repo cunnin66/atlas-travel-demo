@@ -61,7 +61,7 @@ def clear_refresh_tokens(user: User, db: Session):
 def create_access_token(user: User):
     """Create JWT access token using RS256"""
 
-    to_encode = {"sub": user.id}
+    to_encode = {"sub": str(user.id)}
     expire = datetime.now(timezone.utc) + timedelta(
         minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
     )
@@ -85,7 +85,7 @@ def create_refresh_token(user: User, db: Session):
     """Create JWT refresh token using RS256"""
     clear_refresh_tokens(user, db)
 
-    to_encode = {"sub": user.id}
+    to_encode = {"sub": str(user.id)}
     expire = datetime.now(timezone.utc) + timedelta(
         days=settings.REFRESH_TOKEN_EXPIRE_DAYS
     )
@@ -112,9 +112,11 @@ def get_token_payload(token: str) -> Optional[dict]:
         return payload
     except JWTError as e:
         # Token is invalid, expired, or malformed
+        print(e)
         return None
     except Exception as e:
         # Other errors (file not found, etc.)
+        print(e)
         return None
 
 
@@ -123,10 +125,14 @@ def is_access_token_valid(token: str) -> bool:
     payload = get_token_payload(token)
     if not payload:
         return False
+
+    # Convert Unix timestamp to datetime for comparison
+    exp_datetime = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
+
     return (
         payload["type"] == "access"
         and payload["sub"]
-        and payload["exp"] > datetime.now(timezone.utc)
+        and exp_datetime > datetime.now(timezone.utc)
     )
 
 
@@ -154,7 +160,8 @@ def get_user_by_access_token(token: str, db: Session) -> Optional[User]:
         return None
 
     payload = get_token_payload(token)
-    return db.query(User).filter(User.id == payload["sub"]).first()
+    user_id = int(payload["sub"])  # Convert string back to integer
+    return db.query(User).filter(User.id == user_id).first()
 
 
 def hash_password(password: str) -> str:

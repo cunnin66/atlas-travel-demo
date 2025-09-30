@@ -7,7 +7,6 @@ class DestinationBase(BaseModel):
     """Base destination schema"""
 
     name: str
-    country: str
     description: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
