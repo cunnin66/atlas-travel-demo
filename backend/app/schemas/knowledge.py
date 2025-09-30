@@ -1,9 +1,11 @@
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel
 
 
 class KnowledgeBase(BaseModel):
     """Base knowledge schema"""
+
     title: str
     content: str
     source_type: Optional[str] = None
@@ -14,11 +16,13 @@ class KnowledgeBase(BaseModel):
 
 class KnowledgeCreate(KnowledgeBase):
     """Knowledge creation schema"""
+
     pass
 
 
 class KnowledgeUpdate(BaseModel):
     """Knowledge update schema"""
+
     title: Optional[str] = None
     content: Optional[str] = None
     source_type: Optional[str] = None
@@ -29,8 +33,9 @@ class KnowledgeUpdate(BaseModel):
 
 class KnowledgeResponse(KnowledgeBase):
     """Knowledge response schema"""
+
     id: int
     org_id: int
-    
+
     class Config:
         from_attributes = True

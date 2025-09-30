@@ -1,35 +1,36 @@
-from pydantic_settings import BaseSettings
 from typing import Optional
+
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     # Database
     DATABASE_URL: str
-    
+
     # Redis
     REDIS_URL: str
-    
+
     # Security
     ALGORITHM: str = "RS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
-    
+
     # JWT Keys
     JWT_PRIVATE_KEY: str
     JWT_PUBLIC_KEY: str
-    
+
     # API
     API_V1_STR: str = "/api/v1"
     PROJECT_NAME: str = "Atlas Travel Advisor"
-    
+
     # Environment
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
-    
+
     # External APIs
     OPENAI_API_KEY: Optional[str] = None
     ANTHROPIC_API_KEY: Optional[str] = None
-    
+
     class Config:
         env_file = ".env"
 

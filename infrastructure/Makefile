@@ -1,7 +1,7 @@
 # Atlas Travel Advisor - CLI Shortcuts
 # Usage: make <command>
 
-.PHONY: help start stop build test eval clean logs shell-backend shell-frontend
+.PHONY: help start stop build test eval clean logs shell-backend shell-frontend lint format pre-commit-install
 
 # Default target
 help:
@@ -28,6 +28,12 @@ help:
 	@echo "  make shell-backend - Open shell in backend container"
 	@echo "  make shell-frontend - Open shell in frontend container"
 	@echo "  make clean      - Clean up containers and volumes"
+	@echo ""
+	@echo "🧹 Code Quality:"
+	@echo "  make lint       - Run linters on all Python code"
+	@echo "  make format     - Format all Python code with black and isort"
+	@echo "  make pre-commit-install - Install pre-commit hooks"
+	@echo "  make pre-commit-run - Run pre-commit hooks on all files"
 	@echo ""
 	@echo "📚 Database:"
 	@echo "  make db-migrate - Run database migrations"
@@ -144,3 +150,30 @@ install-frontend:
 	cd frontend && pip install -r requirements.txt
 
 install: install-backend install-frontend
+
+# Code Quality Commands
+lint:
+	@echo "🧹 Running linters on all Python code..."
+	@echo "📋 Running flake8..."
+	python3 -m flake8 backend/ frontend/
+	@echo "✅ Linting complete!"
+
+format:
+	@echo "🎨 Formatting all Python code..."
+	@echo "📋 Running black..."
+	python3 -m black backend/ frontend/
+	@echo "📋 Running isort..."
+	python3 -m isort backend/ frontend/
+	@echo "✅ Formatting complete!"
+
+pre-commit-install:
+	@echo "🔧 Installing pre-commit hooks..."
+	python3 -m pip install pre-commit==3.6.0 black==23.12.1 isort==5.13.2 flake8==7.0.0 mypy==1.8.0
+	/Library/Frameworks/Python.framework/Versions/3.12/bin/pre-commit install
+	@echo "✅ Pre-commit hooks installed!"
+	@echo "💡 Now every commit will automatically run linters and formatters"
+
+pre-commit-run:
+	@echo "🔧 Running pre-commit hooks on all files..."
+	/Library/Frameworks/Python.framework/Versions/3.12/bin/pre-commit run --all-files
+	@echo "✅ Pre-commit run complete!"

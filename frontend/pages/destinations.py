@@ -1,15 +1,17 @@
-import streamlit as st
-import sys
 import os
+import sys
+
+import streamlit as st
 
 # Add the parent directory to Python path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from components.navigation import check_authentication, render_navigation
 
+
 def show():
     """Display the destinations page"""
-    
+
     # Check authentication - redirect to login if not authenticated
     if not check_authentication():
         return
@@ -44,19 +46,21 @@ def show():
                 with cols[col_idx]:
                     with st.container(border=True):
                         st.markdown(f"### {dest['image']} {dest['name']}")
-                        st.markdown(dest['description'])
-                        
+                        st.markdown(dest["description"])
+
                         button_cols = st.columns(2)
                         with button_cols[0]:
                             if st.button("🗺️ Plan", key=f"plan_{dest_idx}"):
-                                st.session_state.selected_destination = dest['name']
+                                st.session_state.selected_destination = dest["name"]
                                 st.session_state.current_page = "planner"
                                 st.rerun()
                         with button_cols[1]:
                             if st.button("✏️ Edit", key=f"edit_{dest_idx}"):
-                                st.session_state.edit_destination = dest['name']
+                                st.session_state.edit_destination = dest["name"]
                                 # TODO: Implement edit functionality
-                                st.info(f"Edit functionality for {dest['name']} coming soon!")
+                                st.info(
+                                    f"Edit functionality for {dest['name']} coming soon!"
+                                )
 
     # Add destination button
     st.markdown("---")

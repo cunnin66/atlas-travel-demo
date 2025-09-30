@@ -1,15 +1,17 @@
-import streamlit as st
-import sys
 import os
+import sys
+
+import streamlit as st
 
 # Add the parent directory to Python path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from components.navigation import check_authentication, render_navigation
 
+
 def show():
     """Display the planner page"""
-    
+
     # Check authentication - redirect to login if not authenticated
     if not check_authentication():
         return
@@ -25,7 +27,8 @@ def show():
 
     st.write("TODO: Build this page.")
 
-    st.markdown("""
+    st.markdown(
+        """
     This is the main AI planning interface where you can:
     - Input your travel preferences and requirements
     - Chat with the AI travel agent
@@ -33,4 +36,5 @@ def show():
     - Modify and refine travel plans
     - Export itineraries
     - Real-time streaming responses from the AI agent
-    """)
+    """
+    )

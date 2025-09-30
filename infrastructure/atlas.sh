@@ -40,7 +40,7 @@ check_docker() {
         print_error "Docker is not installed or not in PATH"
         exit 1
     fi
-    
+
     if ! docker compose version &> /dev/null; then
         print_error "Docker Compose is not available"
         exit 1
@@ -123,13 +123,13 @@ restart_services() {
 run_tests() {
     print_info "Running complete test suite..."
     check_docker
-    
+
     print_info "Running unit tests..."
     docker compose exec backend python -m pytest tests/unit/ -v
-    
+
     print_info "Running integration tests..."
     docker compose exec backend python -m pytest tests/integration/ -v
-    
+
     print_success "All tests complete!"
 }
 
@@ -180,14 +180,14 @@ clean_up() {
 # Health check
 health_check() {
     print_info "Checking service health..."
-    
+
     # Check backend
     if curl -s http://localhost:8000/api/v1/ops/healthz > /dev/null 2>&1; then
         print_success "Backend is healthy"
     else
         print_error "Backend not responding"
     fi
-    
+
     # Check frontend
     if curl -s http://localhost:8501 > /dev/null 2>&1; then
         print_success "Frontend is healthy"
