@@ -6,9 +6,6 @@ import uuid
 from datetime import datetime
 from typing import Dict, List
 
-# Increase recursion limit to handle complex workflows
-sys.setrecursionlimit(2000)
-
 from app.models.agent import AgentRun
 from app.models.user import User
 from app.nodes.executor import ExecutorNode

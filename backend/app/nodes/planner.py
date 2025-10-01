@@ -37,6 +37,17 @@ TOOL_REGISTRY = {
             "limit": int,
         },
     },
+    "hotel_search": {
+        "type": "fixture",
+        "description": "Search for hotels in a location. Useful for travel planning and booking.",
+        "args": {
+            "city": str,
+            "country": str,
+            "check_in_date": str,
+            "check_out_date": str,
+            "adults": int,
+        },
+    },
 }
 
 

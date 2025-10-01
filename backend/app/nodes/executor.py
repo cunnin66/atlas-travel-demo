@@ -9,12 +9,15 @@ from typing import Any, Dict, List, Union
 
 from app.nodes.base import BaseNode
 from app.nodes.flights import AmadeusFlightTool, FlightToolFixture
+from app.nodes.hotels import hotel_search_tool
 from app.nodes.knowledge import knowledge_rag_tool
 from app.schemas.agent import AgentState, PlanStep, ToolCall
 from langchain_core.messages import AIMessage, BaseMessage
 
 TOOL_CONFIG = {
-    "search_flights": {type: "fixture"},  # amadeus, fixture
+    "search_flights": {
+        type: "fixture"
+    },  # type=(amadeus, fixture), TODO: cache, retry, graceful fallback settings
 }
 
 
@@ -193,6 +196,8 @@ class ExecutorNode(BaseNode):
             return await self._execute_weather_tool(args)
         elif tool_name == "search_flights":
             return await self._execute_flights_tool(args)
+        elif tool_name == "hotel_search":
+            return await self._execute_hotel_tool(args)
         elif tool_name == "knowledge_base":
             return await self._execute_knowledge_tool(args)
         elif tool_name == "agent":
@@ -224,6 +229,62 @@ class ExecutorNode(BaseNode):
             return await FlightToolFixture().execute(
                 origin, destination, departure_date
             )
+
+    async def _execute_hotel_tool(self, args: Dict[str, Any]) -> str:
+        """Execute hotel search tool"""
+        city = args.get("city", "")
+        country = args.get("country", "")
+        check_in_date = args.get("check_in_date", "")
+        check_out_date = args.get("check_out_date", "")
+        adults = args.get("adults", 1)
+
+        try:
+            result = await hotel_search_tool.execute(
+                city=city,
+                country=country,
+                check_in_date=check_in_date,
+                check_out_date=check_out_date,
+                adults=adults,
+            )
+
+            if result.get("success", False):
+                data = result.get("data", {})
+                hotels = data.get("hotels", [])
+                search_params = data.get("search_params", {})
+
+                if not hotels:
+                    return (
+                        f"No hotels found in {city}, {country} for the specified dates."
+                    )
+
+                # Format the results for the agent
+                formatted_results = []
+                for hotel in hotels[:5]:  # Show top 5 hotels
+                    amenities_str = ", ".join(
+                        hotel["amenities"][:4]
+                    )  # Show first 4 amenities
+                    if len(hotel["amenities"]) > 4:
+                        amenities_str += f" + {len(hotel['amenities']) - 4} more"
+
+                    formatted_results.append(
+                        f"**{hotel['name']}** ({hotel['rating']}⭐)\n"
+                        f"Type: {hotel['hotel_type']}\n"
+                        f"Price: ${hotel['price_per_night_usd']}/night (${hotel['total_price_usd']} total)\n"
+                        f"Distance: {hotel['distance_from_center_km']}km from center\n"
+                        f"Amenities: {amenities_str}\n"
+                        f"Address: {hotel['address']}"
+                    )
+
+                nights = search_params.get("nights", 1)
+                return (
+                    f"Found {len(hotels)} hotels in {city}, {country} for {nights} night(s):\n\n"
+                    + "\n\n---\n\n".join(formatted_results)
+                )
+            else:
+                return f"Hotel search failed: {result.get('message', 'Unknown error')}"
+
+        except Exception as e:
+            return f"Error searching hotels: {str(e)}"
 
     async def _execute_knowledge_tool(self, args: Dict[str, Any]) -> str:
         """Execute knowledge search tool using RAG"""
