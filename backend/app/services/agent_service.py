@@ -226,7 +226,7 @@ class AgentService:
         if is_modification:
             node_messages = {
                 "intent": "🔄 Analyzing your modification request...",
-                "planner": "📝 Updating your travel strategy...",
+                "planner": "📝 Updating strategy...",
                 "executor": "🔧 Executing travel research tasks...",
                 "synthesizer": "✨ Rebuilding your itinerary...",
                 "validator": "🔍 Validating your updated plan...",
@@ -236,7 +236,7 @@ class AgentService:
         else:
             node_messages = {
                 "intent": "🚀 Understanding your travel preferences...",
-                "planner": "🌍 Building your travel strategy...",
+                "planner": "🌍 Building strategy...",
                 "executor": "🔍 Gathering travel information...",
                 "synthesizer": "📅 Creating your personalized itinerary...",
                 "validator": "🔍 Checking your itinerary for issues...",
