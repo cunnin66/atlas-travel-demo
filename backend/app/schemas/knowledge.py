@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class KnowledgeBase(BaseModel):
@@ -12,6 +12,7 @@ class KnowledgeBase(BaseModel):
     source_url: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = {}
     tags: Optional[List[str]] = []
+    destination_id: Optional[int] = None
 
 
 class KnowledgeCreate(KnowledgeBase):
@@ -29,13 +30,22 @@ class KnowledgeUpdate(BaseModel):
     source_url: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
     tags: Optional[List[str]] = None
+    destination_id: Optional[int] = None
 
 
-class KnowledgeResponse(KnowledgeBase):
+class KnowledgeResponse(BaseModel):
     """Knowledge response schema"""
 
     id: int
     org_id: int
+    title: str
+    content: str
+    source_type: Optional[str] = None
+    source_url: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = Field(default={}, alias="item_metadata")
+    tags: Optional[List[str]] = []
+    destination_id: Optional[int] = None
 
     class Config:
         from_attributes = True
+        populate_by_name = True

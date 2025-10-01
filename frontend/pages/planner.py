@@ -135,7 +135,7 @@ with col2:
     with st.container(horizontal=True):
         if st.button("< Back", type="secondary"):
             st.switch_page("pages/home.py")
-        if st.button("🔄 New Conversation", type="secondary"):
+        if st.button("🔄 New Plan", type="secondary"):
             clear_conversation()
             st.rerun()
 

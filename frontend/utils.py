@@ -30,23 +30,29 @@ def refresh_token():
         return False
 
 
-def send_request(method, url, json=None, headers=None):
+def send_request(
+    method, url, json=None, headers=None, files=None, data=None, params=None
+):
     if method == "POST":
-        return requests.post(url, json=json, headers=headers)
+        return requests.post(
+            url, json=json, headers=headers, files=files, data=data, params=params
+        )
     elif method == "GET":
-        return requests.get(url, headers=headers)
+        return requests.get(url, headers=headers, params=params)
     elif method == "PUT":
-        return requests.put(url, json=json, headers=headers)
+        return requests.put(
+            url, json=json, headers=headers, files=files, data=data, params=params
+        )
     elif method == "DELETE":
         return requests.delete(url, headers=headers)
     else:
         raise ValueError(f"Invalid method: {method}")
 
 
-def request_with_auth(method, endpoint, json=None):
+def request_with_auth(method, endpoint, json=None, files=None, data=None, params=None):
     headers = {"Authorization": f"Bearer {st.session_state['access_token']}"}
     url = f"{BACKEND_API_URL}/api/v1{endpoint}"
-    response = send_request(method, url, json, headers)
+    response = send_request(method, url, json, headers, files, data, params)
 
     if response.status_code == 401:
         if st.session_state["refresh_token"]:
@@ -55,7 +61,7 @@ def request_with_auth(method, endpoint, json=None):
                 headers = {
                     "Authorization": f"Bearer {st.session_state['access_token']}"
                 }
-                response = send_request(method, url, json, headers)
+                response = send_request(method, url, json, headers, files, data, params)
 
     if response.status_code == 401:
         st.error("Error: Session has expired")
