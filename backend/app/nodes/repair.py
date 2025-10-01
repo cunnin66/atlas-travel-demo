@@ -5,151 +5,103 @@ import uuid
 from typing import List
 
 from app.nodes.base import BaseNode
+from app.nodes.planner import TOOL_REGISTRY, PlanSchema
 from app.schemas.agent import AgentState, PlanStep
+from langchain_core.messages import AIMessage, SystemMessage
 
 
 class RepairNode(BaseNode):
     def __call__(self, state: AgentState):
-        print(f"---REPAIR NODE ({state['session_id']})---")
+        print(f"---PLANNER NODE ({state['session_id']})---")
+
+        current_itinerary = state.get("itinerary", {})
         violations = state.get("violations", [])
-        current_plan = state.get("plan", [])
+        tool_descriptions = self._generate_tool_descriptions()
 
-        if not violations:
-            print("No violations found, nothing to repair")
-            return {"plan": current_plan}
+        planning_system_message = SystemMessage(
+            content=f"""You are a travel planning assistant. Its been identified the the following itinerary has a number of issues.
+            Your task is to build a simple step-by-step plan to fix the listed issues.
 
-        print(f"Processing {len(violations)} violations: {violations}")
+Your plan should:
+1. Break down the issues into logical steps
+2. Use appropriate tools to gather additional information, if needed
+3. Ensure each step has all necessary information
+4. Create dependencies between steps when needed
+5. Assume that after all steps are executed, a final 'synthesizer' and 'validator' step will be run to put it all together. So do not include them in your plan.
 
-        # Generate repair tasks based on violations
-        repair_tasks = self._generate_repair_tasks(violations, state)
+The current itinerary:
+{current_itinerary}
 
-        # Add repair tasks to the existing plan
-        updated_plan = current_plan + repair_tasks
+The identified issues:
+{violations}
 
-        print(f"Added {len(repair_tasks)} repair tasks to plan")
+Available tools to remediate:
+{tool_descriptions}
 
-        return {"plan": updated_plan}
+Each step must have:
+- id: unique identifier (e.g., "get_weather", "search_flights")
+- depends_on: list of step IDs this step depends on (empty list [] if no dependencies)
+- tool: exact name of the tool to use (must match available tools)
+- args: dictionary with arguments for the tool
 
-    def _generate_repair_tasks(
-        self, violations: List[str], state: AgentState
-    ) -> List[PlanStep]:
-        """Generate repair tasks based on the violations found"""
-        repair_tasks = []
+Example repair plan for a trip to Paris:
+[
+  {{
+    "id": "search_hotels_paris",
+    "depends_on": [],
+    "tool": "hotel_search",
+    "args": {{"location": "Paris", "check_in_date": "2025-06-01", "check_out_date": "2025-06-07"}}
+  }},
+  {{
+    "id": "change_hotel",
+    "depends_on": ["search_hotels_paris"],
+    "tool": "agent",
+    "args": {{"prompt": "Pick a hotel closer to the city center, per the users request"}}
+  }}
+]
 
-        for violation in violations:
-            violation_lower = violation.lower()
+Create a comprehensive plan that addresses the user's travel request."""
+        )
 
-            # Budget-related repairs
-            if "budget" in violation_lower or "cost" in violation_lower:
-                repair_tasks.append(
-                    {
-                        "id": str(uuid.uuid4()),
-                        "depends_on": [],
-                        "tool": "budget_optimizer",
-                        "args": {
-                            "violation": violation,
-                            "action": "reduce_costs",
-                            "target": "activities_and_accommodations",
-                        },
-                    }
+        # Construct the prompt by prepending the system message to the existing history
+        prompt = state["messages"] + [planning_system_message]
+
+        # Use structured output to get a proper plan
+        structured_llm = self.llm_model.with_structured_output(PlanSchema)
+        response = structured_llm.invoke(prompt)
+        print("Number of steps in plan:", len(response["steps"]))
+
+        # The response should be a list of PlanStep objects
+        return {
+            "messages": [
+                AIMessage(
+                    content=f"Created new plan with {len(response['steps'])} steps"
                 )
+            ],
+            "plan": response["steps"],
+        }
 
-            # Date/scheduling conflicts
-            elif "day" in violation_lower and (
-                "conflict" in violation_lower or "activities" in violation_lower
-            ):
-                repair_tasks.append(
-                    {
-                        "id": str(uuid.uuid4()),
-                        "depends_on": [],
-                        "tool": "schedule_optimizer",
-                        "args": {
-                            "violation": violation,
-                            "action": "redistribute_activities",
-                            "target": "daily_schedule",
-                        },
-                    }
+    def _generate_tool_descriptions(self) -> str:
+        """Generate formatted descriptions of available tools"""
+        descriptions = []
+
+        for tool_name, tool_info in TOOL_REGISTRY.items():
+            desc = f"- {tool_name}: {tool_info['description']}"
+
+            # Add argument information
+            if "args" in tool_info:
+                args_desc = ", ".join(
+                    [
+                        f"{arg}: {arg_type.__name__}"
+                        for arg, arg_type in tool_info["args"].items()
+                    ]
                 )
+                desc += f"\n  Arguments: {args_desc}"
 
-            # Location feasibility issues
-            elif "location" in violation_lower or "feasible" in violation_lower:
-                repair_tasks.append(
-                    {
-                        "id": str(uuid.uuid4()),
-                        "depends_on": [],
-                        "tool": "location_optimizer",
-                        "args": {
-                            "violation": violation,
-                            "action": "cluster_activities",
-                            "target": "geographic_proximity",
-                        },
-                    }
-                )
+            # Add endpoint information for HTTP tools
+            if tool_info.get("type") == "http" and "endpoint" in tool_info:
+                desc += f"\n  Endpoint: {tool_info['endpoint']}"
 
-            # Weather-related issues
-            elif "weather" in violation_lower or "outdoor" in violation_lower:
-                repair_tasks.append(
-                    {
-                        "id": str(uuid.uuid4()),
-                        "depends_on": [],
-                        "tool": "weather_adapter",
-                        "args": {
-                            "violation": violation,
-                            "action": "substitute_activities",
-                            "target": "weather_appropriate_alternatives",
-                        },
-                    }
-                )
+            descriptions.append(desc)
 
-            # Preference mismatches
-            elif (
-                "kid-friendly" in violation_lower
-                or "museum" in violation_lower
-                or "preference" in violation_lower
-            ):
-                repair_tasks.append(
-                    {
-                        "id": str(uuid.uuid4()),
-                        "depends_on": [],
-                        "tool": "preference_aligner",
-                        "args": {
-                            "violation": violation,
-                            "action": "align_with_preferences",
-                            "target": "activity_selection",
-                        },
-                    }
-                )
-
-            # Date range violations
-            elif "date" in violation_lower and (
-                "exceed" in violation_lower or "available" in violation_lower
-            ):
-                repair_tasks.append(
-                    {
-                        "id": str(uuid.uuid4()),
-                        "depends_on": [],
-                        "tool": "date_adjuster",
-                        "args": {
-                            "violation": violation,
-                            "action": "compress_itinerary",
-                            "target": "trip_duration",
-                        },
-                    }
-                )
-
-            # Generic repair task for unhandled violations
-            else:
-                repair_tasks.append(
-                    {
-                        "id": str(uuid.uuid4()),
-                        "depends_on": [],
-                        "tool": "generic_fixer",
-                        "args": {
-                            "violation": violation,
-                            "action": "analyze_and_fix",
-                            "target": "itinerary_optimization",
-                        },
-                    }
-                )
-
-        return repair_tasks
+        return "\n".join(descriptions)
