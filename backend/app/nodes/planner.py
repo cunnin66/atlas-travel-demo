@@ -40,7 +40,7 @@ class PlanSchema(TypedDict):
 
 class PlannerNode(BaseNode):
     def __call__(self, state: AgentState):
-        print(f"---PLANNER NODE (${state['session_id']})---")
+        print(f"---PLANNER NODE ({state['session_id']})---")
 
         # Generate tool descriptions for the system message
         tool_descriptions = self._generate_tool_descriptions()
@@ -53,7 +53,7 @@ Your plan should:
 2. Use appropriate tools to gather information
 3. Ensure each step has all necessary information
 4. Create dependencies between steps when needed
-5. End with a final step that synthesizes everything into a travel plan
+5. Assume that after all steps are executed, a final 'synthesizer' and 'validator' step will be run. So do not include them in your plan.
 
 Available tools:
 {tool_descriptions}
@@ -85,10 +85,10 @@ Example for a trip to Paris:
     "args": {{"origin": "New York", "destination": "ORY", "departure_date": "2025-06-01", "return_date": "2025-06-08", "passengers": 1}}
   }},
   {{
-    "id": "create_itinerary",
-    "depends_on": ["check_weather", "find_flight_CDG", "find_flight_ORY"],
+    "id": "pick_airport",
+    "depends_on": ["find_flight_CDG", "find_flight_ORY"],
     "tool": "agent",
-    "args": {{"prompt": "Create a detailed 7-day Paris itinerary considering the weather forecast and flight details"}}
+    "args": {{"prompt": "Determine the best airport to fly into for the trip based on the given dates"}}
   }}
 ]
 
@@ -101,7 +101,7 @@ Create a comprehensive plan that addresses the user's travel request."""
         # Use structured output to get a proper plan
         structured_llm = self.llm_model.with_structured_output(PlanSchema)
         response = structured_llm.invoke(prompt)
-        print("THE PLAN:", response)
+        print("Number of steps in plan:", len(response["steps"]))
 
         # The response should be a list of PlanStep objects
         return {

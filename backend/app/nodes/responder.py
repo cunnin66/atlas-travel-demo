@@ -9,7 +9,7 @@ from langchain_core.messages import AIMessage, SystemMessage
 
 class ResponderNode(BaseNode):
     def __call__(self, state: AgentState):
-        print(f"---RESPONDER NODE (${state['session_id']})---")
+        print(f"---RESPONDER NODE ({state['session_id']})---")
         # Itinerary, citations, and decisions comes from synthesizer
         # Generate final markdown summary
         markdown = self.llm_model.invoke(

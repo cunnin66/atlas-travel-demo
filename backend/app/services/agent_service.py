@@ -1,19 +1,31 @@
 import asyncio
 import json
+import sys
 import time
 import uuid
 from datetime import datetime
-from typing import Dict
+from typing import Dict, List
+
+# Increase recursion limit to handle complex workflows
+sys.setrecursionlimit(2000)
 
 from app.models.agent import AgentRun
 from app.models.user import User
+from app.nodes.executor import ExecutorNode
 from app.nodes.intent import IntentNode
 from app.nodes.planner import PlannerNode
 from app.nodes.repair import RepairNode
 from app.nodes.responder import ResponderNode
 from app.nodes.synthesizer import SynthesizerNode
 from app.nodes.verifier import VerifierNode
-from app.schemas.agent import AgentState, Itinerary, PlanRequest, PlanResponse
+from app.schemas.agent import (
+    AgentState,
+    Itinerary,
+    PlanRequest,
+    PlanResponse,
+    ToolAudit,
+    ToolCall,
+)
 from langchain_core.messages import HumanMessage, SystemMessage
 
 # from langgraph.prebuilt import ToolExecutor
@@ -51,6 +63,7 @@ def create_agent_workflow():
     workflow = StateGraph(AgentState)
     workflow.add_node("intent", IntentNode(model, tool_executor))
     workflow.add_node("planner", PlannerNode(model, tool_executor))
+    workflow.add_node("executor", ExecutorNode(model, tool_executor))
     workflow.add_node("validator", VerifierNode(model, tool_executor))
     workflow.add_node("repair", RepairNode(model, tool_executor))
     workflow.add_node("synthesizer", SynthesizerNode(model, tool_executor))
@@ -58,7 +71,17 @@ def create_agent_workflow():
 
     workflow.set_entry_point("intent")
     workflow.add_edge("intent", "planner")
-    workflow.add_edge("planner", "synthesizer")
+
+    def router_decision(state: AgentState):
+        """Route based on whether there are more plan steps to execute"""
+        plan = state.get("plan", [])
+        if len(plan) == 0:
+            return "synthesizer"
+        else:
+            return "executor"  # Continue executing plan steps
+
+    workflow.add_conditional_edges("planner", router_decision)
+    workflow.add_conditional_edges("executor", router_decision)
     workflow.add_edge("synthesizer", "validator")
 
     def validator_router(state: AgentState):
@@ -70,10 +93,16 @@ def create_agent_workflow():
             return "repair"
 
     workflow.add_conditional_edges("validator", validator_router)
-    workflow.add_edge("repair", "synthesizer")
+    workflow.add_conditional_edges("repair", router_decision)
     workflow.add_edge("responder", END)
 
-    return workflow.compile()
+    # Configure workflow with higher limits to handle complex plans
+    return workflow.compile(
+        checkpointer=None,  # No checkpointing for now
+        interrupt_before=None,
+        interrupt_after=None,
+        debug=False,  # Enable debug mode for better error reporting
+    )
 
 
 # Workflow is an object that executes a series of nodes on the AgentState object
@@ -96,19 +125,21 @@ class AgentService:
         self._current_plan_id = request.plan_id
 
         initial_state = self._initialize_agent(request)
-        final_state = await asyncio.to_thread(workflow.invoke, initial_state)
+        final_state = await asyncio.to_thread(
+            workflow.invoke, initial_state, config={"recursion_limit": 20}
+        )
 
         if final_state.get("done", False):
             self._update_run_record(
                 "completed",
                 final_state.get("plan_snapshot", {}),
-                final_state.get("tool_log", []),
+                self._convert_tool_calls_to_log(final_state.get("tool_calls", [])),
             )
         else:
             self._update_run_record(
                 "failed",
                 final_state.get("plan_snapshot", {}),
-                final_state.get("tool_log", []),
+                self._convert_tool_calls_to_log(final_state.get("tool_calls", [])),
             )
 
         # Generate or reuse plan ID
@@ -124,7 +155,9 @@ class AgentService:
             answer_markdown=final_state.get("answer_markdown", ""),
             itinerary=final_state.get("itinerary", {}),
             citations=final_state.get("citations", []),
-            tools_used=final_state.get("tool_log", []),
+            tools_used=self._convert_tool_calls_to_audit(
+                final_state.get("tool_calls", [])
+            ),
             decisions=final_state.get("decisions", []),
             status=self.run.status,
             created_at=self.run.started_at,
@@ -169,7 +202,7 @@ class AgentService:
                 self._update_run_record(
                     "completed",
                     final_state.get("plan_data", {}),
-                    final_state.get("tool_log", []),
+                    self._convert_tool_calls_to_log(final_state.get("tool_calls", [])),
                 )
             else:
                 self._update_run_record("completed", {}, [])
@@ -194,6 +227,7 @@ class AgentService:
             node_messages = {
                 "intent": "🔄 Analyzing your modification request...",
                 "planner": "📝 Updating your travel strategy...",
+                "executor": "🔧 Executing travel research tasks...",
                 "synthesizer": "✨ Rebuilding your itinerary...",
                 "validator": "🔍 Validating your updated plan...",
                 "repair": "🔧 Fixing identified issues...",
@@ -203,6 +237,7 @@ class AgentService:
             node_messages = {
                 "intent": "🚀 Understanding your travel preferences...",
                 "planner": "🌍 Building your travel strategy...",
+                "executor": "🔍 Gathering travel information...",
                 "synthesizer": "📅 Creating your personalized itinerary...",
                 "validator": "🔍 Checking your itinerary for issues...",
                 "repair": "🔧 Optimizing your travel plan...",
@@ -212,8 +247,10 @@ class AgentService:
         current_node = None
         accumulated_state = initial_state.copy()
 
-        # Stream workflow execution
-        async for event in workflow.astream(initial_state):
+        # Stream workflow execution with increased recursion limit
+        async for event in workflow.astream(
+            initial_state, config={"recursion_limit": 20}
+        ):
             for node_name, node_output in event.items():
                 # Emit status message when starting a new node
                 if node_name != current_node and node_name in node_messages:
@@ -230,8 +267,6 @@ class AgentService:
 
         # Generate the final plan response
         if accumulated_state.get("done"):
-            print(f"Accumulated state: {accumulated_state}")
-
             itinerary_dict = accumulated_state.get("itinerary", {})
             try:
                 itinerary = (
@@ -248,7 +283,9 @@ class AgentService:
                 answer_markdown=accumulated_state.get("answer_markdown", ""),
                 itinerary=itinerary,
                 citations=accumulated_state.get("citations", []),
-                tools_used=[],  # TODO: Add tool usage tracking
+                tools_used=self._convert_tool_calls_to_audit(
+                    accumulated_state.get("tool_calls", [])
+                ),
                 decisions=accumulated_state.get("decisions", []),
                 status="completed",
                 created_at=datetime.now(),
@@ -269,7 +306,7 @@ class AgentService:
                 "constraints": accumulated_state.get("constraints", {}),
             }
 
-            # Create final response matching fakeStream format
+            # Create final response
             final_response = {
                 "type": "plan_complete",
                 "plan_id": plan_id,
@@ -327,6 +364,7 @@ class AgentService:
             "messages": [create_system_message(), HumanMessage(content=request.prompt)],
             "constraints": constraints,
             "plan": [],
+            "tool_calls": [],
             "itinerary": {},
             "citations": [],
             "decisions": [],
@@ -334,3 +372,40 @@ class AgentService:
             "answer_markdown": "",
             "done": False,
         }
+
+    def _convert_tool_calls_to_log(self, tool_calls: List[ToolCall]) -> List[Dict]:
+        """Convert ToolCall objects to log format for database storage"""
+        return [
+            {
+                "id": tc.id,
+                "tool": tc.tool,
+                "args": tc.args,
+                "result": tc.result,
+                "error": tc.error,
+                "started_at": tc.started_at.isoformat() if tc.started_at else None,
+                "completed_at": tc.completed_at.isoformat()
+                if tc.completed_at
+                else None,
+                "duration_ms": tc.duration_ms,
+            }
+            for tc in tool_calls
+        ]
+
+    def _convert_tool_calls_to_audit(
+        self, tool_calls: List[ToolCall]
+    ) -> List[ToolAudit]:
+        """Convert ToolCall objects to ToolAudit format for API responses"""
+        tool_stats = {}
+
+        for tc in tool_calls:
+            if tc.tool not in tool_stats:
+                tool_stats[tc.tool] = {"count": 0, "total_ms": 0.0}
+
+            tool_stats[tc.tool]["count"] += 1
+            if tc.duration_ms:
+                tool_stats[tc.tool]["total_ms"] += tc.duration_ms
+
+        return [
+            ToolAudit(name=tool_name, count=stats["count"], total_ms=stats["total_ms"])
+            for tool_name, stats in tool_stats.items()
+        ]

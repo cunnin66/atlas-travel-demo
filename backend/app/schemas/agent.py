@@ -72,6 +72,19 @@ class ToolAudit(BaseModel):
     total_ms: float
 
 
+class ToolCall(BaseModel):
+    """Individual tool call record"""
+
+    id: str  # The step ID from the plan
+    tool: str  # Tool name (weather, search_flights, etc.)
+    args: Dict[str, Any]  # Arguments passed to the tool
+    result: Optional[str] = None  # Tool execution result
+    error: Optional[str] = None  # Error message if execution failed
+    started_at: datetime
+    completed_at: Optional[datetime] = None
+    duration_ms: Optional[float] = None
+
+
 class PlanStep(TypedDict):
     id: str
     depends_on: List[str]
@@ -86,6 +99,7 @@ class AgentState(TypedDict):
     messages: Annotated[List[BaseMessage], operator.add]
     constraints: Any
     plan: List[PlanStep]
+    tool_calls: List[ToolCall]  # Track tool call executions with full details
     itinerary: Dict[str, Any]  # Will be converted to Itinerary when needed
     citations: Annotated[List[Citation], operator.add]
     decisions: List[str]

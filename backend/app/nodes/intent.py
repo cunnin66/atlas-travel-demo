@@ -154,8 +154,6 @@ If no specific constraint is mentioned, leave it as null or empty."""
             else:
                 final_constraints = extracted_constraints.dict()
 
-            print(f"Final constraints: {final_constraints}")
-
             return {
                 "constraints": final_constraints,
                 "messages": [

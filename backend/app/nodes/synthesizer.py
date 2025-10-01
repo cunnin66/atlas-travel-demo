@@ -28,69 +28,89 @@ class SynthesizerOutput(BaseModel):
 
 class SynthesizerNode(BaseNode):
     def __call__(self, state: AgentState):
-        print(f"---SYNTHESIZER NODE (${state['session_id']})---")
+        print(f"---SYNTHESIZER NODE ({state['session_id']})---")
 
-        # Extract current itinerary if it exists
-        current_itinerary = state.get("itinerary", {})
+        try:
+            # Extract current itinerary if it exists
+            current_itinerary = state.get("itinerary", {})
 
-        # Extract tool results and other relevant information from the state
-        tool_results = self._extract_tool_results(state)
-        constraints = state.get("constraints", {})
+            # Extract tool results and other relevant information from the state
+            tool_results = self._extract_tool_results(state)
+            constraints = state.get("constraints", {})
 
-        # Create system message for synthesis
-        system_message = SystemMessage(
-            content=self._create_synthesis_prompt(
-                current_itinerary, tool_results, constraints
-            )
-        )
-
-        # Prepare the full message history with system prompt
-        messages = [system_message] + state["messages"]
-
-        # Use structured output to get properly formatted response
-        structured_llm = self.llm_model.with_structured_output(SynthesizerOutput)
-        result = structured_llm.invoke(messages)
-
-        print(f"Synthesizer result: {result}")
-
-        # Convert the structured result to the expected format
-        itinerary_dict = result.itinerary.model_dump()
-        citations_list = [citation.model_dump() for citation in result.citations]
-
-        return {
-            "messages": [
-                AIMessage(
-                    content=f"Synthesized itinerary with {len(result.itinerary.days)} days. {result.reasoning}"
+            # Create system message for synthesis
+            system_message = SystemMessage(
+                content=self._create_synthesis_prompt(
+                    current_itinerary, tool_results, constraints
                 )
-            ],
-            "itinerary": itinerary_dict,
-            "citations": citations_list,
-            "decisions": result.decisions,
-        }
+            )
+
+            # Prepare the full message history with system prompt
+            messages = [system_message] + state["messages"]
+
+            # Use structured output to get properly formatted response
+            structured_llm = self.llm_model.with_structured_output(SynthesizerOutput)
+            result = structured_llm.invoke(messages)
+
+            print("SYNTHSIZER DONE")
+
+            # Convert the structured result to the expected format
+            itinerary_dict = result.itinerary.model_dump()
+            citations_list = [citation.model_dump() for citation in result.citations]
+
+            result_dict = {
+                "messages": [
+                    AIMessage(
+                        content=f"Synthesized itinerary with {len(result.itinerary.days)} days. {result.reasoning}"
+                    )
+                ],
+                "itinerary": itinerary_dict,
+                "citations": citations_list,
+                "decisions": result.decisions,
+                # Don't set done=True here - only the responder should set done=True
+            }
+
+            print("SYNTHESIZER: Returning result, should transition to validator next")
+            return result_dict
+        except Exception as e:
+            print(f"SYNTHESIZER: Error: {e}")
+            return {
+                "messages": [
+                    AIMessage(content=f"Error synthesizing itinerary: {str(e)}")
+                ]
+            }
 
     def _extract_tool_results(self, state: AgentState) -> str:
         """Extract and format tool results from the agent state"""
         tool_results = []
 
-        # Look for tool results in the message history
+        # Extract tool results from ToolMessages in message history
+        from langchain_core.messages import ToolMessage
+
         for message in state["messages"]:
-            if hasattr(message, "tool_calls") and message.tool_calls:
-                for tool_call in message.tool_calls:
-                    tool_results.append(f"Tool: {tool_call.get('name', 'unknown')}")
-                    tool_results.append(f"Args: {tool_call.get('args', {})}")
+            if isinstance(message, ToolMessage):
+                tool_results.append(f"Tool: {message.name}")
+                tool_results.append(f"Result: {message.content}")
 
-            # Also check for tool responses
-            if hasattr(message, "content") and isinstance(message.content, str):
-                if (
-                    "weather" in message.content.lower()
-                    or "flight" in message.content.lower()
-                ):
-                    tool_results.append(f"Tool result: {message.content}")
+        # Extract tool results from tool_calls in state
+        tool_calls = state.get("tool_calls", [])
+        if tool_calls:
+            tool_results.append(f"\nExecuted {len(tool_calls)} tool calls:")
+            for tc in tool_calls:
+                tool_results.append(f"- {tc.tool} ({tc.id})")
+                tool_results.append(f"  Args: {tc.args}")
+                if tc.result:
+                    tool_results.append(f"  Result: {tc.result}")
+                if tc.error:
+                    tool_results.append(f"  Error: {tc.error}")
+                if tc.duration_ms:
+                    tool_results.append(f"  Duration: {tc.duration_ms:.2f}ms")
 
-        # Include plan information if available
-        if state.get("plan"):
-            tool_results.append(f"Executed plan with {len(state['plan'])} steps")
-            for step in state["plan"]:
+        # Include remaining plan information if available
+        remaining_plan = state.get("plan", [])
+        if remaining_plan:
+            tool_results.append(f"\nRemaining plan steps: {len(remaining_plan)}")
+            for step in remaining_plan:
                 tool_results.append(
                     f"- {step.get('tool', 'unknown')}: {step.get('args', {})}"
                 )

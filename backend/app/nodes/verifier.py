@@ -45,7 +45,7 @@ class VerifierNode(BaseNode):
         violations.extend(self._check_weather_appropriateness(itinerary, constraints))
         violations.extend(self._check_preference_fit(itinerary, constraints))
 
-        print(f"Found {len(violations)} violations: {violations}")
+        print(f"VERIFIER: Found {len(violations)} violations: {violations}")
 
         return {"violations": violations}
 
