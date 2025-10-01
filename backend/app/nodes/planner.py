@@ -29,6 +29,14 @@ TOOL_REGISTRY = {
             "departure_date": str,
         },
     },
+    "knowledge_base": {
+        "type": "rag",
+        "description": "Search the knowledge base using RAG (Retrieval Augmented Generation). Provides relevant information from uploaded documents, travel guides, and other knowledge sources.",
+        "args": {
+            "query": str,
+            "limit": int,
+        },
+    },
 }
 
 

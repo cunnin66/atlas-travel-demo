@@ -1,5 +1,6 @@
 from app.models.base import BaseModel
-from sqlalchemy import JSON, Column, Float, ForeignKey, String, Text
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import JSON, Column, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import relationship
 
@@ -19,8 +20,12 @@ class KnowledgeItem(BaseModel):
     # Organization relationship
     org_id = Column(ForeignKey("orgs.id"), nullable=False)
 
+    # Destination relationship
+    destination_id = Column(ForeignKey("destinations.id"), nullable=True)
+
     # Relationships
     embeddings = relationship("Embedding", back_populates="knowledge_item")
+    destination = relationship("Destination", backref="knowledge_items")
 
 
 class Embedding(BaseModel):
@@ -30,8 +35,9 @@ class Embedding(BaseModel):
 
     knowledge_item_id = Column(ForeignKey("knowledge_items.id"), nullable=False)
     chunk_text = Column(Text, nullable=False)
-    embedding_vector = Column(ARRAY(Float))  # Vector embedding
-    chunk_index = Column(String(50))
+    embedding_vector = Column(Vector(1536))  # OpenAI ada-002 embedding dimension
+    chunk_index = Column(Integer)
+    token_count = Column(Integer)
 
     # Relationships
     knowledge_item = relationship("KnowledgeItem", back_populates="embeddings")

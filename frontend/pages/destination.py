@@ -44,12 +44,55 @@ def get_destination(destination_id):
         return None
 
 
+def get_knowledge_items(destination_id=None):
+    """Get knowledge base items, optionally filtered by destination"""
+    url = "/knowledge/"
+    if destination_id is not None:
+        url += f"?destination_id={destination_id}"
+
+    response = request_with_auth("GET", url)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        return []
+
+
+def upload_knowledge_file(file, title=None, destination_id=None):
+    """Upload a file to the knowledge base"""
+    files = {"file": (file.name, file.getvalue(), file.type)}
+    data = {}
+    if title:
+        data["title"] = title
+    if destination_id:
+        data["destination_id"] = destination_id
+
+    response = request_with_auth(
+        "POST", "/knowledge/upload-file", files=files, data=data
+    )
+    return response
+
+
+def search_knowledge_base(query, limit=5, destination_id=None):
+    """Search the knowledge base"""
+    search_data = {"query": query, "limit": limit}
+    if destination_id is not None:
+        search_data["destination_id"] = destination_id
+
+    response = request_with_auth("POST", "/knowledge/search", json=search_data)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        return None
+
+
 if "edit_destination" in st.session_state:
     destination = get_destination(st.session_state.edit_destination)
 else:
     destination = None
 
-files = []
+# Get knowledge items for display (filtered by destination)
+destination_id = st.session_state.get("edit_destination") if destination else None
+knowledge_items = get_knowledge_items(destination_id)
 menu_with_redirect()
 
 if destination is None:
@@ -91,10 +134,100 @@ else:
     with cols[1]:
         with st.container(border=True):
             st.write("KNOWLEDGE BASE")
-            if len(files) > 0:
-                for file in files:
-                    st.write(file.name)
+
+            # Display existing knowledge items
+            if len(knowledge_items) > 0:
+                st.write("**Uploaded Files:**")
+                for item in knowledge_items:
+                    with st.expander(f"📄 {item['title']}", expanded=False):
+                        st.write(f"**Type:** {item['source_type']}")
+                        if item.get("item_metadata", {}).get("file_size"):
+                            file_size_kb = item["item_metadata"]["file_size"] / 1024
+                            st.write(f"**Size:** {file_size_kb:.1f} KB")
+                        st.write("**Content Preview:**")
+                        preview = (
+                            item["content"][:200] + "..."
+                            if len(item["content"]) > 200
+                            else item["content"]
+                        )
+                        st.text(preview)
             else:
-                with st.container(horizontal_alignment="center"):
-                    st.markdown("*No files uploaded*")
-            st.file_uploader("Upload a file", type=["pdf", "docx", "txt"])
+                with st.container():
+                    st.markdown("*No files uploaded yet*")
+
+            st.divider()
+
+            # File upload section
+            st.write("**Upload New File:**")
+            uploaded_file = st.file_uploader(
+                "Choose a file",
+                type=["pdf", "md", "markdown"],
+                help="Upload PDF or Markdown files to add to the knowledge base",
+            )
+
+            if uploaded_file is not None:
+                # Optional title input
+                custom_title = st.text_input(
+                    "Custom title (optional)", value="", placeholder=uploaded_file.name
+                )
+
+                if st.button("Upload and Process", type="primary"):
+                    with st.spinner("Processing file..."):
+                        try:
+                            response = upload_knowledge_file(
+                                uploaded_file,
+                                title=custom_title if custom_title else None,
+                                destination_id=destination["id"],
+                            )
+
+                            if response.status_code == 200:
+                                result = response.json()
+                                st.success("✅ File processed successfully!")
+                                st.info(
+                                    f"Created {result['chunks_created']} text chunks for search"
+                                )
+                                st.rerun()  # Refresh the page to show new file
+                            else:
+                                error_detail = response.json().get(
+                                    "detail", "Unknown error"
+                                )
+                                st.error(f"❌ Upload failed: {error_detail}")
+                        except Exception as e:
+                            st.error(f"❌ Error uploading file: {str(e)}")
+
+            st.divider()
+
+            # Knowledge search section
+            st.write("**Search Knowledge Base:**")
+            search_query = st.text_input("Search for information...")
+
+            if search_query and st.button("Search", type="secondary"):
+                with st.spinner("Searching..."):
+                    try:
+                        search_results = search_knowledge_base(
+                            search_query, destination_id=destination["id"]
+                        )
+
+                        if search_results and search_results.get("results"):
+                            st.write(
+                                f"**Found {len(search_results['results'])} relevant results:**"
+                            )
+
+                            for i, result in enumerate(search_results["results"], 1):
+                                with st.expander(
+                                    f"Result {i}: {result['knowledge_item_title']} (Similarity: {result['similarity']:.2f})",
+                                    expanded=i == 1,
+                                ):
+                                    st.write(
+                                        f"**Source:** {result['knowledge_item_title']}"
+                                    )
+                                    st.write(f"**Type:** {result['source_type']}")
+                                    st.write(f"**Chunk:** {result['chunk_index']}")
+                                    st.write("**Content:**")
+                                    st.text(result["chunk_text"])
+                        else:
+                            st.info(
+                                "No relevant results found. Try a different search query."
+                            )
+                    except Exception as e:
+                        st.error(f"❌ Search failed: {str(e)}")

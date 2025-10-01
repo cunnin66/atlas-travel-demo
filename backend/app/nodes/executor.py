@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Union
 
 from app.nodes.base import BaseNode
 from app.nodes.flights import AmadeusFlightTool, FlightToolFixture
+from app.nodes.knowledge import knowledge_rag_tool
 from app.schemas.agent import AgentState, PlanStep, ToolCall
 from langchain_core.messages import AIMessage, BaseMessage
 
@@ -192,6 +193,8 @@ class ExecutorNode(BaseNode):
             return await self._execute_weather_tool(args)
         elif tool_name == "search_flights":
             return await self._execute_flights_tool(args)
+        elif tool_name == "knowledge_base":
+            return await self._execute_knowledge_tool(args)
         elif tool_name == "agent":
             return await self._execute_agent_tool(args)
         else:
@@ -221,6 +224,44 @@ class ExecutorNode(BaseNode):
             return await FlightToolFixture().execute(
                 origin, destination, departure_date
             )
+
+    async def _execute_knowledge_tool(self, args: Dict[str, Any]) -> str:
+        """Execute knowledge search tool using RAG"""
+        query = args.get("query", "")
+        limit = args.get("limit", 5)
+        similarity_threshold = args.get("similarity_threshold", 0.7)
+
+        try:
+            result = await knowledge_rag_tool.execute(
+                query=query, limit=limit, similarity_threshold=similarity_threshold
+            )
+
+            if result.get("success", False):
+                data = result.get("data", {})
+                results = data.get("results", [])
+
+                if not results:
+                    return f"No relevant knowledge found for query: '{query}'"
+
+                # Format the results for the agent
+                formatted_results = []
+                for item in results:
+                    formatted_results.append(
+                        f"**{item['title']}** (similarity: {item['similarity']:.2f})\n"
+                        f"{item['chunk_text'][:500]}{'...' if len(item['chunk_text']) > 500 else ''}"
+                    )
+
+                return (
+                    f"Found {len(results)} relevant knowledge items for '{query}':\n\n"
+                    + "\n\n---\n\n".join(formatted_results)
+                )
+            else:
+                return (
+                    f"Knowledge search failed: {result.get('message', 'Unknown error')}"
+                )
+
+        except Exception as e:
+            return f"Error searching knowledge base: {str(e)}"
 
     async def _execute_agent_tool(self, args: Dict[str, Any]) -> str:
         """Execute agent tool - placeholder implementation"""
