@@ -15,3 +15,4 @@ class Org(BaseModel):
 
     # Relationships
     users = relationship("User", back_populates="org")
+    agent_runs = relationship("AgentRun", back_populates="org")
