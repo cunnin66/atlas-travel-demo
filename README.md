@@ -14,6 +14,14 @@ An Agentic AI Travel Planning Platform that demonstrates modern full-stack devel
 
 ## 🏗️ Architecture
 
+### Agent Flow Diagram
+
+![Agent Flow Diagram](docs/agent-flow-diagram.jpeg)
+
+The diagram above illustrates the AI agent's decision-making flow, showing how requests move through different processing nodes including Intent analysis, Planning, Execution, Synthesis, Validation, and Response generation.
+
+### Project Structure
+
 ```
 ├── backend/          # FastAPI application
 │   ├── app/
