@@ -8,12 +8,17 @@ from datetime import datetime
 from typing import Any, Dict, List, Union
 
 from app.nodes.base import BaseNode
+from app.nodes.flights import AmadeusFlightTool, FlightToolFixture
 from app.schemas.agent import AgentState, PlanStep, ToolCall
 from langchain_core.messages import AIMessage, BaseMessage
 
+TOOL_CONFIG = {
+    "search_flights": {type: "fixture"},  # amadeus, fixture
+}
+
 
 class ExecutorNode(BaseNode):
-    def __call__(self, state: AgentState):
+    async def __call__(self, state: AgentState):
         print(f"---EXECUTOR NODE ({state['session_id']})---")
         try:
             plan = state["plan"]
@@ -36,7 +41,7 @@ class ExecutorNode(BaseNode):
             )
 
             # Execute steps (in parallel if possible)
-            messages, new_tool_calls = self._execute_steps(executable_steps)
+            messages, new_tool_calls = await self._execute_steps(executable_steps)
 
             # Remove executed steps from plan and add new tool calls
             executed_step_ids = [step["id"] for step in executable_steps]
@@ -74,10 +79,10 @@ class ExecutorNode(BaseNode):
 
         return executable_steps
 
-    def _execute_steps(
+    async def _execute_steps(
         self, steps: List[PlanStep]
     ) -> tuple[List[BaseMessage], List[ToolCall]]:
-        """Execute the given steps and return tool messages and tool call records"""
+        """Execute the given steps in parallel and return tool messages and tool call records"""
         messages = []
         tool_call_records = []
 
@@ -85,14 +90,16 @@ class ExecutorNode(BaseNode):
         tool_calls_data = []
         tool_messages = []
 
+        # Create tool call records for internal tracking
+        tool_calls = []
         for step in steps:
-            # Create tool call record for internal tracking
             tool_call = ToolCall(
                 id=step["id"],
                 tool=step["tool"],
                 args=step["args"],
                 started_at=datetime.now(),
             )
+            tool_calls.append(tool_call)
 
             # Create tool call data for OpenAI format
             tool_call_data = {
@@ -105,9 +112,11 @@ class ExecutorNode(BaseNode):
             }
             tool_calls_data.append(tool_call_data)
 
+        # Execute all steps in parallel
+        async def execute_step_with_timing(step: PlanStep, tool_call: ToolCall):
             start_time = time.time()
             try:
-                result = self._execute_single_step(step)
+                result = await self._execute_single_step(step)
                 end_time = time.time()
 
                 # Update tool call record with success
@@ -118,10 +127,10 @@ class ExecutorNode(BaseNode):
                 tool_message = AIMessage(
                     content=str(result),
                 )
-                tool_messages.append(tool_message)
                 print(
                     f"Executed step {step['id']} with tool {step['tool']} in {tool_call.duration_ms:.2f}ms"
                 )
+                return tool_message, None
 
             except Exception as e:
                 end_time = time.time()
@@ -136,10 +145,32 @@ class ExecutorNode(BaseNode):
                     tool_call_id=step["id"],
                     name=step["tool"],
                 )
-                messages.append(error_message)
                 print(f"Error executing step {step['id']}: {e}")
+                return None, error_message
 
-            tool_call_records.append(tool_call)
+        # Run all steps in parallel
+        tasks = [
+            execute_step_with_timing(step, tool_call)
+            for step, tool_call in zip(steps, tool_calls)
+        ]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Process results
+        for result in results:
+            if isinstance(result, Exception):
+                # Handle any unexpected exceptions from asyncio.gather
+                error_message = AIMessage(
+                    content=f"Unexpected error: {str(result)}",
+                )
+                messages.append(error_message)
+            else:
+                tool_message, error_message = result
+                if tool_message:
+                    tool_messages.append(tool_message)
+                if error_message:
+                    messages.append(error_message)
+
+        tool_call_records.extend(tool_calls)
 
         # Create an AIMessage with tool_calls first, then add tool messages
         if tool_calls_data:
@@ -152,42 +183,50 @@ class ExecutorNode(BaseNode):
 
         return messages, tool_call_records
 
-    def _execute_single_step(self, step: PlanStep) -> Any:
+    async def _execute_single_step(self, step: PlanStep) -> Any:
         """Execute a single step based on its tool type"""
         tool_name = step["tool"]
         args = step["args"]
 
         if tool_name == "weather":
-            return self._execute_weather_tool(args)
+            return await self._execute_weather_tool(args)
         elif tool_name == "search_flights":
-            return self._execute_flights_tool(args)
+            return await self._execute_flights_tool(args)
         elif tool_name == "agent":
-            return self._execute_agent_tool(args)
+            return await self._execute_agent_tool(args)
         else:
             raise ValueError(f"Unknown tool: {tool_name}")
 
-    def _execute_weather_tool(self, args: Dict[str, Any]) -> str:
+    async def _execute_weather_tool(self, args: Dict[str, Any]) -> str:
         """Execute weather tool - placeholder implementation"""
         location = args.get("location", "Unknown")
         days = args.get("days", 1)
 
         # TODO: Implement actual weather API call
+        # Simulate async API call with a small delay
+        await asyncio.sleep(0.1)
         return f"Weather forecast for {location} for {days} days: Partly cloudy, 20-25°C. Good weather for travel activities."
 
-    def _execute_flights_tool(self, args: Dict[str, Any]) -> str:
+    async def _execute_flights_tool(self, args: Dict[str, Any]) -> str:
         """Execute flights search tool - placeholder implementation"""
         origin = args.get("origin", "Unknown")
         destination = args.get("destination", "Unknown")
         departure_date = args.get("departure_date", "Unknown")
-        return_date = args.get("return_date", "Unknown")
-        passengers = args.get("passengers", 1)
 
-        # TODO: Implement actual flight search API call
-        return f"Flight search results for {passengers} passenger(s) from {origin} to {destination}, departing {departure_date}, returning {return_date}: Found flights starting from $650 with major airlines."
+        if TOOL_CONFIG.get("search_flights", {}).get("type") == "amadeus":
+            return await AmadeusFlightTool().execute(
+                origin, destination, departure_date
+            )
+        else:
+            return await FlightToolFixture().execute(
+                origin, destination, departure_date
+            )
 
-    def _execute_agent_tool(self, args: Dict[str, Any]) -> str:
+    async def _execute_agent_tool(self, args: Dict[str, Any]) -> str:
         """Execute agent tool - placeholder implementation"""
         prompt = args.get("prompt", "")
 
         # TODO: Implement actual agent call for complex reasoning
+        # Simulate async API call with a small delay
+        await asyncio.sleep(0.1)
         return f"Agent analysis: {prompt} - This requires detailed planning based on the gathered information."

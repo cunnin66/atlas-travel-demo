@@ -124,124 +124,113 @@ else:
 
 menu_with_redirect()
 
-if destination is None:
-    st.subheader("Unknown Destination!")
-    st.markdown(
-        """
-    Oops! There was an error: no destination selected. Please navigate back to the [Home Page](./home) to choose a destination.
-    """
-    )
-    if st.button("< Back", type="secondary"):
-        st.switch_page("pages/home.py")
+# Header section
+col1, col2 = st.columns([3, 1])
 
-else:
-    # Header section
-    col1, col2 = st.columns([3, 1])
+# with col1:
+# st.title("🗺️ AI Travel Planner")
+# st.subheader(f"Planning your trip to {destination['name']}")
 
-    # with col1:
-    # st.title("🗺️ AI Travel Planner")
-    # st.subheader(f"Planning your trip to {destination['name']}")
-
-    with col2:
-        with st.container(horizontal=True):
-            if st.button("< Back", type="secondary"):
-                st.switch_page("pages/home.py")
-            if st.button("🔄 New Conversation", type="secondary"):
-                clear_conversation()
-                st.rerun()
-
-    # Show helpful tips if no conversation started
-    if not st.session_state.conversation_history:
-        st.markdown(
-            """
-            💡 **Get started by describing your ideal trip!**
-
-            Include details like:
-            - Length of trip (e.g., "3 days", "a weekend")
-            - Budget range (e.g., "$500 total", "mid-range")
-            - Interests (e.g., "museums", "nightlife", "nature")
-            - Travel style (e.g., "relaxed", "packed with activities")
-            - Special requirements (e.g., "vegetarian food", "accessible venues")
-            """,
-            unsafe_allow_html=True,
-        )
-
-    # Chat interface container
-    chat_container = st.container(height=400)
-
-    with chat_container:
-        display_conversation_history()
-
-    # Input section at bottom
-    st.markdown("---")
-
-    # Determine if this is an initial request or modification
-    is_modification = st.session_state.current_plan_id is not None
-    placeholder_text = (
-        "Ask me to modify your plan..."
-        if is_modification
-        else f"Help me plan my trip to {destination['name']}..."
-    )
-
-    # Chat input
-    with st.form("chat_form", clear_on_submit=True):
-        col1, col2 = st.columns([4, 1])
-
-        with col1:
-            user_input = st.text_area(
-                "Message",
-                placeholder=placeholder_text,
-                height=80,
-                label_visibility="collapsed",
-            )
-
-        with col2:
-            st.markdown("<br>", unsafe_allow_html=True)  # Add some spacing
-            submit_button = st.form_submit_button(
-                "Plan" if not is_modification else "Update",
-                type="primary",
-                use_container_width=True,
-            )
-
-    # Handle form submission
-    if submit_button and user_input.strip():
-        if not st.session_state.is_streaming:
-            st.session_state.is_streaming = True
-
-            # Add user message to history
-            add_message_to_history("user", user_input.strip())
-
-            # Show user message immediately
-            with chat_container:
-                display_conversation_history()
-
-            # Stream the response
-            with st.spinner("🤖 AI is thinking..."):
-                result = stream_trip_request(
-                    destination["id"],
-                    user_input.strip(),
-                    st.session_state.current_plan_id,
-                )
-
-            if result:
-                # Add assistant response to history
-                response_text = (
-                    "Here's your updated travel plan!"
-                    if result.get("is_edit")
-                    else "Here's your travel plan!"
-                )
-                add_message_to_history("assistant", response_text, result["plan_data"])
-
-            st.session_state.is_streaming = False
+with col2:
+    with st.container(horizontal=True):
+        if st.button("< Back", type="secondary"):
+            st.switch_page("pages/home.py")
+        if st.button("🔄 New Conversation", type="secondary"):
+            clear_conversation()
             st.rerun()
 
-    elif submit_button and not user_input.strip():
-        st.warning("Please enter a message before submitting!")
+# Show helpful tips if no conversation started
+if not st.session_state.conversation_history:
+    st.markdown(
+        """
+        💡 **Get started by describing your ideal trip!**
 
-    # Show current status
-    if st.session_state.is_streaming:
-        st.info("🤖 AI is working on your request...")
-    elif st.session_state.current_plan_id:
-        st.success(
-            f"✅ Plan ready! You can ask for modifications above. (Plan ID: {st.session_state.current_plan_id})"
+        Include details like:
+        - Length of trip (e.g., "3 days", "a weekend")
+        - Budget range (e.g., "$500 total", "mid-range")
+        - Interests (e.g., "museums", "nightlife", "nature")
+        - Travel style (e.g., "relaxed", "packed with activities")
+        - Special requirements (e.g., "vegetarian food", "accessible venues")
+        """,
+        unsafe_allow_html=True,
+    )
+
+# Chat interface container
+chat_container = st.container(height=400)
+
+with chat_container:
+    display_conversation_history()
+
+# Input section at bottom
+st.markdown("---")
+
+# Determine if this is an initial request or modification
+is_modification = st.session_state.current_plan_id is not None
+placeholder_text = (
+    "Ask me to modify your plan..."
+    if is_modification
+    else f"Help me plan my trip to {destination['name']}..."
+)
+
+# Chat input
+with st.form("chat_form", clear_on_submit=True):
+    col1, col2 = st.columns([4, 1])
+
+    with col1:
+        user_input = st.text_area(
+            "Message",
+            placeholder=placeholder_text,
+            height=80,
+            label_visibility="collapsed",
         )
+
+    with col2:
+        st.markdown("<br>", unsafe_allow_html=True)  # Add some spacing
+        submit_button = st.form_submit_button(
+            "Plan" if not is_modification else "Update",
+            type="primary",
+            use_container_width=True,
+        )
+
+# Handle form submission
+if submit_button and user_input.strip():
+    if not st.session_state.is_streaming:
+        st.session_state.is_streaming = True
+
+        # Add user message to history
+        add_message_to_history("user", user_input.strip())
+
+        # Show user message immediately
+        with chat_container:
+            display_conversation_history()
+
+        # Stream the response
+        with st.spinner("🤖 AI is thinking..."):
+            result = stream_trip_request(
+                destination["id"],
+                user_input.strip(),
+                st.session_state.current_plan_id,
+            )
+
+        if result:
+            # Add assistant response to history
+            response_text = (
+                "Here's your updated travel plan!"
+                if result.get("is_edit")
+                else "Here's your travel plan!"
+            )
+            add_message_to_history("assistant", response_text, result["plan_data"])
+
+        st.session_state.is_streaming = False
+        st.rerun()
+
+elif submit_button and not user_input.strip():
+    st.warning("Please enter a message before submitting!")
+
+# Show current status
+if st.session_state.is_streaming:
+    st.info("🤖 AI is working on your request...")
+elif st.session_state.current_plan_id:
+    st.success(
+        f"✅ Plan ready! You can ask for modifications above. (Plan ID: {st.session_state.current_plan_id})"
+    )

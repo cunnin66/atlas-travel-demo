@@ -27,8 +27,6 @@ TOOL_REGISTRY = {
             "origin": str,
             "destination": str,
             "departure_date": str,
-            "return_date": str,
-            "passengers": int,
         },
     },
 }
@@ -76,13 +74,13 @@ Example for a trip to Paris:
     "id": "find_flight_CDG",
     "depends_on": [],
     "tool": "search_flights",
-    "args": {{"origin": "New York", "destination": "CDG", "departure_date": "2025-06-01", "return_date": "2025-06-08", "passengers": 1}}
+    "args": {{"origin": "JFK", "destination": "CDG", "departure_date": "2025-06-01"}}
   }},
   {{
     "id": "find_flight_ORY",
     "depends_on": [],
     "tool": "search_flights",
-    "args": {{"origin": "New York", "destination": "ORY", "departure_date": "2025-06-01", "return_date": "2025-06-08", "passengers": 1}}
+    "args": {{"origin": "JFK", "destination": "ORY", "departure_date": "2025-06-01"}}
   }},
   {{
     "id": "pick_airport",
